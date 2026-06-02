@@ -223,6 +223,7 @@ export interface IFormattedAbilities {
   grenade: number;
   ability_1: number;
   ability_2: number;
+  cv_state?: any;
 }
 
 export interface IFormattedAuxScoreboardTeam {

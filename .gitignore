@@ -134,3 +134,22 @@ app
 !angular/src/app
 
 electron-builder.env
+
+# --- Spectra-CV-C++ Build Files ---
+Spectra-CV-C++/.vs/
+Spectra-CV-C++/out/
+Spectra-CV-C++/build/
+Spectra-CV-C++/debug_images/
+*.dll
+*.exe
+*.pdb
+*.ilk
+
+
+
+# Old Python version
+Spectra-CV/
+
+
+.yarn/
+

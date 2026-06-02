@@ -1,0 +1,702 @@
+{
+  "Astra": {},
+  "Breach": {
+    "A_charge2": {
+      "x_pct": 48.04687,
+      "y_pct": 96.52777,
+      "w_pct": 0.4,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#5FEEB8",
+        "#0A1813",
+        "#1B3939",
+        "#F9E7B4",
+        "#191712",
+        "#323839"
+      ],
+      "strict": true
+    }
+  },
+  "Brimstone": {
+    "E_charge2": {
+      "x_pct": 52.69531,
+      "y_pct": 96.52777,
+      "w_pct": 0.4,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#5FEEB8",
+        "#0A1813",
+        "#1B3939",
+        "#F9E7B4",
+        "#191712",
+        "#323839"
+      ],
+      "strict": true
+    },
+    "E_charge3": {
+      "x_pct": 53.90625,
+      "y_pct": 96.52777,
+      "w_pct": 0.4,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#5FEEB8",
+        "#0A1813",
+        "#1B3939",
+        "#F9E7B4",
+        "#191712",
+        "#323839"
+      ],
+      "strict": true
+    }
+  },
+  "Chamber": {
+    "C_timer": {
+      "x_pct": 42.5,
+      "y_pct": 90.06844,
+      "w_pct": 1,
+      "h_pct": 1.4,
+      "type": "text_timer"
+    },
+    "A_bullet": {
+      "x_pct": 46.64062,
+      "y_pct": 91.94444,
+      "w_pct": 0.79,
+      "h_pct": 2.222222,
+      "type": "text_bullet"
+    },
+    "E_timer": {
+      "x_pct": 54.25781,
+      "y_pct": 90.06844,
+      "w_pct": 1,
+      "h_pct": 1.4,
+      "type": "text_timer"
+    }
+  },
+  "Clove": {
+    "E_charge2": {
+      "x_pct": 53.90625,
+      "y_pct": 96.52777,
+      "w_pct": 0.4,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#5FEEB8",
+        "#0A1813",
+        "#1B3939",
+        "#F9E7B4",
+        "#191712",
+        "#323839"
+      ],
+      "strict": true
+    },
+    "E_timer": {
+      "x_pct": 54.25781,
+      "y_pct": 90.06844,
+      "w_pct": 1,
+      "h_pct": 1.4,
+      "type": "text_timer"
+    },
+    "Ult_timer": {
+      "x_pct": 43.984375,
+      "y_pct": 65.902777,
+      "w_pct": 0.1,
+      "h_pct": 1,
+      "type": "color",
+      "expected_color_rgb": [
+        "#22FFC5"
+      ]
+    }
+  },
+  "Cypher": {
+    "C_charge2": {
+      "x_pct": 42.1875,
+      "y_pct": 96.52777,
+      "w_pct": 0.4,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#5FEEB8",
+        "#0A1813",
+        "#1B3939",
+        "#F9E7B4",
+        "#191712",
+        "#323839"
+      ],
+      "strict": true
+    },
+    "A_charge2": {
+      "x_pct": 48.04687,
+      "y_pct": 96.52777,
+      "w_pct": 0.4,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#5FEEB8",
+        "#0A1813",
+        "#1B3939",
+        "#F9E7B4",
+        "#191712",
+        "#323839"
+      ],
+      "strict": true
+    },
+    "E_timer": {
+      "x_pct": 54.25781,
+      "y_pct": 90.06844,
+      "w_pct": 1,
+      "h_pct": 1.4,
+      "type": "text_timer"
+    }
+  },
+  "Deadlock": {
+    "A_charge2": {
+      "x_pct": 48.04687,
+      "y_pct": 96.52777,
+      "w_pct": 0.4,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#5FEEB8",
+        "#0A1813",
+        "#1B3939",
+        "#F9E7B4",
+        "#191712",
+        "#323839"
+      ],
+      "strict": true
+    },
+    "Ult_timer": {
+      "x_pct": 43.984375,
+      "y_pct": 65.902777,
+      "w_pct": 0.1,
+      "h_pct": 1,
+      "type": "color",
+      "expected_color_rgb": [
+        "#22FFC5"
+      ]
+    }
+  },
+  "Fade": {
+    "C_charge2": {
+      "x_pct": 42.1875,
+      "y_pct": 96.52777,
+      "w_pct": 0.4,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#5FEEB8",
+        "#0A1813",
+        "#1B3939",
+        "#F9E7B4",
+        "#191712",
+        "#323839"
+      ],
+      "strict": true
+    }
+  },
+  "Gekko": {
+    "C_timer": {
+      "x_pct": 42.5,
+      "y_pct": 90.06844,
+      "w_pct": 1,
+      "h_pct": 1.4,
+      "type": "text_timer"
+    },
+    "A_timer": {
+      "x_pct": 48.4,
+      "y_pct": 90.06844,
+      "w_pct": 1,
+      "h_pct": 1.4,
+      "type": "text_timer"
+    },
+    "E_timer": {
+      "x_pct": 54.25781,
+      "y_pct": 90.06844,
+      "w_pct": 1,
+      "h_pct": 1.4,
+      "type": "text_timer"
+    },
+    "X_timer": {
+      "x_pct": 59.6875,
+      "y_pct": 90.06844,
+      "w_pct": 1,
+      "h_pct": 1.4,
+      "type": "text_timer"
+    }
+  },
+  "Harbor": {},
+  "Iso": {
+    "Shield_timer_end_leftside": {
+      "x_pct": 43.984375,
+      "y_pct": 65.902777,
+      "w_pct": 0.1,
+      "h_pct": 1,
+      "type": "color",
+      "expected_color_rgb": [
+        "#C1BAFF"
+      ]
+    },
+    "Shield_timer_start_rightside": {
+      "x_pct": 43.984375,
+      "y_pct": 65.902777,
+      "w_pct": 12,
+      "h_pct": 1,
+      "type": "color",
+      "expected_color_rgb": [
+        "#E5E5E5"
+      ]
+    }
+  },
+  "Jett": {
+    "C_charge2": {
+      "x_pct": 42.1875,
+      "y_pct": 96.52777,
+      "w_pct": 0.4,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#5FEEB8",
+        "#0A1813",
+        "#1B3939",
+        "#F9E7B4",
+        "#191712",
+        "#323839"
+      ],
+      "strict": true
+    },
+    "Dash_timer": {
+      "x_pct": 43.984375,
+      "y_pct": 65.902777,
+      "w_pct": 0.1,
+      "h_pct": 1,
+      "type": "color",
+      "expected_color_rgb": [
+        "#22FFC5"
+      ]
+    },
+    "comment": "Rajouter nombre de couteau ult restant"
+  },
+  "KAYO": {
+    "A_charge2": {
+      "x_pct": 48.04687,
+      "y_pct": 96.52777,
+      "w_pct": 0.4,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#5FEEB8",
+        "#0A1813",
+        "#1B3939",
+        "#F9E7B4",
+        "#191712",
+        "#323839"
+      ],
+      "strict": true
+    }
+  },
+  "Killjoy": {
+    "C_charge2": {
+      "x_pct": 42.1875,
+      "y_pct": 96.52777,
+      "w_pct": 0.4,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#5FEEB8",
+        "#0A1813",
+        "#1B3939",
+        "#F9E7B4",
+        "#191712",
+        "#323839"
+      ],
+      "strict": true
+    },
+    "A_timer": {
+      "x_pct": 48.4,
+      "y_pct": 90.06844,
+      "w_pct": 1,
+      "h_pct": 1.4,
+      "type": "text_timer"
+    },
+    "E_timer": {
+      "x_pct": 54.25781,
+      "y_pct": 90.06844,
+      "w_pct": 1,
+      "h_pct": 1.4,
+      "type": "text_timer"
+    }
+  },
+  "Miks": {
+    "C_charge2": {
+      "x_pct": 42.1875,
+      "y_pct": 96.52777,
+      "w_pct": 0.4,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#5FEEB8",
+        "#0A1813",
+        "#1B3939",
+        "#F9E7B4",
+        "#191712",
+        "#323839"
+      ],
+      "strict": true
+    },
+    "E_charge2": {
+      "x_pct": 53.90625,
+      "y_pct": 96.52777,
+      "w_pct": 0.4,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#5FEEB8",
+        "#0A1813",
+        "#1B3939",
+        "#F9E7B4",
+        "#191712",
+        "#323839"
+      ],
+      "strict": true
+    },
+    "E_timer": {
+      "x_pct": 54.25781,
+      "y_pct": 90.06844,
+      "w_pct": 1,
+      "h_pct": 1.4,
+      "type": "text_timer"
+    }
+  },
+  "Neon": {
+    "Neon_fuel": {
+      "x_pct": 49.10156,
+      "y_pct": 90.31111,
+      "w_pct": 1.8,
+      "h_pct": 1.6,
+      "type": "text"
+    }
+  },
+  "Omen": {
+    "C_charge2": {
+      "x_pct": 42.1875,
+      "y_pct": 96.52777,
+      "w_pct": 0.4,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#5FEEB8",
+        "#0A1813",
+        "#1B3939",
+        "#F9E7B4",
+        "#191712",
+        "#323839"
+      ],
+      "strict": true
+    },
+    "E_charge2": {
+      "x_pct": 53.90625,
+      "y_pct": 96.52777,
+      "w_pct": 0.4,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#5FEEB8",
+        "#0A1813",
+        "#1B3939",
+        "#F9E7B4",
+        "#191712",
+        "#323839"
+      ],
+      "strict": true
+    },
+    "E_timer": {
+      "x_pct": 54.25781,
+      "y_pct": 90.06844,
+      "w_pct": 1,
+      "h_pct": 1.4,
+      "type": "text_timer"
+    },
+    "Ult_timer": {
+      "x_pct": 43.984375,
+      "y_pct": 65.902777,
+      "w_pct": 0.1,
+      "h_pct": 1,
+      "type": "color",
+      "expected_color_rgb": [
+        "#66C3A9"
+      ]
+    }
+  },
+  "Phoenix": {
+    "E_charge2": {
+      "x_pct": 53.90625,
+      "y_pct": 96.52777,
+      "w_pct": 0.4,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#5FEEB8",
+        "#0A1813",
+        "#1B3939",
+        "#F9E7B4",
+        "#191712",
+        "#323839"
+      ],
+      "strict": true
+    },
+    "Ult_timer": {
+      "x_pct": 43.984375,
+      "y_pct": 65.902777,
+      "w_pct": 0.1,
+      "h_pct": 1,
+      "type": "color",
+      "expected_color_rgb": [
+        "#22FFC5"
+      ]
+    }
+  },
+  "Raze": {
+    "A_charge2": {
+      "x_pct": 48.04687,
+      "y_pct": 96.52777,
+      "w_pct": 0.4,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#5FEEB8",
+        "#0A1813",
+        "#1B3939",
+        "#F9E7B4",
+        "#191712",
+        "#323839"
+      ],
+      "strict": true
+    }
+  },
+  "Reyna": {
+    "C_charge2": {
+      "x_pct": 42.1875,
+      "y_pct": 96.52777,
+      "w_pct": 0.4,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#5FEEB8",
+        "#0A1813",
+        "#1B3939",
+        "#F9E7B4",
+        "#191712",
+        "#323839"
+      ],
+      "strict": true
+    }
+  },
+  "Sage": {
+    "A_charge2": {
+      "x_pct": 48.04687,
+      "y_pct": 96.52777,
+      "w_pct": 0.4,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#5FEEB8",
+        "#0A1813",
+        "#1B3939",
+        "#F9E7B4",
+        "#191712",
+        "#323839"
+      ],
+      "strict": true
+    }
+  },
+  "Skye": {
+    "E_charge2": {
+      "x_pct": 53.90625,
+      "y_pct": 96.52777,
+      "w_pct": 0.4,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#5FEEB8",
+        "#0A1813",
+        "#1B3939",
+        "#F9E7B4",
+        "#191712",
+        "#323839"
+      ],
+      "strict": true
+    },
+    "E_timer": {
+      "x_pct": 54.25781,
+      "y_pct": 90.06844,
+      "w_pct": 1,
+      "h_pct": 1.4,
+      "type": "text_timer"
+    },
+    "Skye_fuel": {
+      "x_pct": 49.10156,
+      "y_pct": 90.31111,
+      "w_pct": 1.8,
+      "h_pct": 1.6,
+      "type": "text"
+    }
+  },
+  "Sova": {
+    "A_charge2": {
+      "x_pct": 48.04687,
+      "y_pct": 96.52777,
+      "w_pct": 0.4,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#5FEEB8",
+        "#0A1813",
+        "#1B3939",
+        "#F9E7B4",
+        "#191712",
+        "#323839"
+      ],
+      "strict": true
+    },
+    "Sova_drone_timer": {
+      "x_pct": 39.84375,
+      "y_pct": 85.069444,
+      "w_pct": 0.000001,
+      "h_pct": 0.000001,
+      "type": "color",
+      "expected_color_rgb": [
+        "#ACEEE2"
+      ]
+    }
+  },
+  "Tejo": {
+    "E_charge2": {
+      "x_pct": 53.90625,
+      "y_pct": 96.52777,
+      "w_pct": 0.4,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#5FEEB8",
+        "#0A1813",
+        "#1B3939",
+        "#F9E7B4",
+        "#191712",
+        "#323839"
+      ],
+      "strict": true
+    },
+    "Tejo_drone_timer": {
+      "x_pct": 39.84375,
+      "y_pct": 85.069444,
+      "w_pct": 0.000001,
+      "h_pct": 0.000001,
+      "type": "color",
+      "expected_color_rgb": [
+        "#ACEEE2"
+      ]
+    }
+  },
+  "Veto": {
+    "C_charge2": {
+      "x_pct": 42.1875,
+      "y_pct": 96.52777,
+      "w_pct": 0.4,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#5FEEB8",
+        "#0A1813",
+        "#1B3939",
+        "#F9E7B4",
+        "#191712",
+        "#323839"
+      ],
+      "strict": true
+    },
+    "E_timer": {
+      "x_pct": 54.25781,
+      "y_pct": 90.06844,
+      "w_pct": 1,
+      "h_pct": 1.4,
+      "type": "text_timer"
+    },
+    "Veto_ult": {
+      "x_pct": 31.25,
+      "y_pct": 87.847222,
+      "w_pct": 5,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#0B9DCA",
+        "#0E2D3C"
+      ],
+      "strict": true
+    }
+  },
+  "Viper": {
+    "Viper_fuel": {
+      "x_pct": 49.10156,
+      "y_pct": 90.31111,
+      "w_pct": 1.8,
+      "h_pct": 1.6,
+      "type": "text"
+    }
+  },
+  "Vyse": {
+    "C_charge2": {
+      "x_pct": 42.1875,
+      "y_pct": 96.52777,
+      "w_pct": 0.4,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#5FEEB8",
+        "#0A1813",
+        "#1B3939",
+        "#F9E7B4",
+        "#191712",
+        "#323839"
+      ],
+      "strict": true
+    },
+    "E_timer": {
+      "x_pct": 54.25781,
+      "y_pct": 90.06844,
+      "w_pct": 1,
+      "h_pct": 1.4,
+      "type": "text_timer"
+    }
+  },
+  "Waylay": {},
+  "Yoru": {
+    "E_charge2": {
+      "x_pct": 53.90625,
+      "y_pct": 96.52777,
+      "w_pct": 0.4,
+      "h_pct": 0.5,
+      "type": "color",
+      "expected_color_rgb": [
+        "#5FEEB8",
+        "#0A1813",
+        "#1B3939",
+        "#F9E7B4",
+        "#191712",
+        "#323839"
+      ]
+    },
+    "Ult_timer": {
+      "x_pct": 43.984375,
+      "y_pct": 65.902777,
+      "w_pct": 0.1,
+      "h_pct": 1,
+      "type": "color",
+      "expected_color_rgb": [
+        "#22FFC5"
+      ]
+    }
+  }
+}

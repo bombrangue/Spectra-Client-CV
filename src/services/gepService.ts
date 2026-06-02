@@ -22,6 +22,7 @@ import {
   IFormattedScoreboard,
 } from "./formattingService";
 import HotkeyService from "./hotkeyService";
+import { CVService } from "./cvService";
 
 const app = electronApp as overwolf.OverwolfApp;
 const VALORANT_ID = 21640;
@@ -361,6 +362,7 @@ export class GameEventsService {
       case "health":
       case "abilities":
         log.info(`Received HP/Ability event in observer mode!`);
+        log.info('=== RAW GEP ABILITIES VALUE ===', data.value);
         break;
 
       case "player_id":
@@ -484,6 +486,7 @@ export class GameEventsService {
         if (data.value == null) {
           return;
         }
+        log.info("=== RAW GEP ABILITIES VALUE ===", data.value);
         const valueObject = JSON.parse(data.value);
         formatted = {
           type: DataTypes.AUX_ABILITIES,
@@ -491,6 +494,7 @@ export class GameEventsService {
             grenade: valueObject["C"],
             ability_1: valueObject["Q"],
             ability_2: valueObject["E"],
+            cv_state: CVService.getInstance().getCVState(), // Inject raw CV data for ingest server
           },
         };
 
@@ -508,6 +512,8 @@ export class GameEventsService {
         if (data.value == null) {
           return;
         }
+
+        CVService.getInstance().setPhase(data.value);
 
         if (data.value === "end") {
           if ((this.currGamemode == "bomb" || this.currGamemode == "swift") && this.isCustomGame) {
@@ -531,6 +537,8 @@ export class GameEventsService {
         if (data.value == null) {
           return;
         }
+
+        CVService.getInstance().setAgent(data.value);
 
         // Check if it's Astra (Rift)
         if (data.value.includes("Rift")) {

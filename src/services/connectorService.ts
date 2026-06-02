@@ -29,6 +29,13 @@ import {
 import HotkeyService from "./hotkeyService";
 const storage = require("electron-json-storage");
 
+function logWithTime(message: string) {
+    const now = new Date();
+    const ms = now.getMilliseconds().toString().padStart(3, '0');
+    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}.${ms}`;
+    log.info(`[${timeStr}] ${message}`);
+}
+
 export interface AuthTeam {
   name: string;
   tricode: string;
@@ -68,7 +75,7 @@ export class ConnectorService {
 
   private static instance: ConnectorService;
 
-  private constructor() {}
+  private constructor() { }
 
   public static getInstance(): ConnectorService {
     if (ConnectorService.instance == null) ConnectorService.instance = new ConnectorService();
@@ -335,6 +342,7 @@ export class ConnectorService {
   sendToIngestAux(formatted: IFormattedData) {
     if (this.connected) {
       const toSend = { playerId: this.PLAYER_ID, matchId: this.MATCH_ID, ...formatted };
+      logWithTime(`PLAYER Client sending data to INGEST SERVER: type=${formatted.type}`);
       this.ws!.emit(SocketChannels.AUXILIARY_DATA, JSON.stringify(toSend));
     }
   }

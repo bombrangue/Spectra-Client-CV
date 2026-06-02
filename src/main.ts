@@ -1,6 +1,7 @@
 import path from "path";
 import { GameEventsService } from "./services/gepService";
 import { ConnectorService } from "./services/connectorService";
+import { CVService } from "./services/cvService";
 import { dialog, shell, Tray, Menu, Rectangle, MenuItem } from "electron";
 import { AuthTeam } from "./services/connectorService";
 import log from "electron-log/main";
@@ -126,9 +127,9 @@ const createWindow = () => {
       if (!tray) {
         createTray(
           iconPathGlobal ||
-            (isDev()
-              ? path.join(__dirname, "../build/icon.ico")
-              : path.join(__dirname, "./frontend/browser/assets/icon.ico")),
+          (isDev()
+            ? path.join(__dirname, "../build/icon.ico")
+            : path.join(__dirname, "./frontend/browser/assets/icon.ico")),
         );
       }
     }
@@ -311,15 +312,18 @@ app.whenReady().then(async () => {
   });
 
   createWindow();
-  const updateAvailable = await updateCheck();
-  if (updateAvailable) {
-    shell.openExternal(`https://valospectra.com/download`);
-    app.quit();
-    // return to not init overwolf
-    return;
-  }
+  const updateAvailable = false; // Désactive la vérification automatique
+  // const updateAvailable = await updateCheck();
+  // if (updateAvailable) {
+  //   shell.openExternal(`https://valospectra.com/download`);
+  //   app.quit();
+  //   // return to not init overwolf
+  //   return;
+  // }
 
   gepService = new GameEventsService(isAuxiliary);
+  const cvService = CVService.getInstance();
+  
   overwolfSetup();
   deeplinkSetup();
 
@@ -382,10 +386,10 @@ function createTray(iconPath: string) {
   tray.setToolTip("Spectra Client");
   log.info(
     "Creating system tray icon (traySetting=" +
-      traySetting +
-      ", startMinimized=" +
-      runAtStartupSetting.startMinimized +
-      ")",
+    traySetting +
+    ", startMinimized=" +
+    runAtStartupSetting.startMinimized +
+    ")",
   );
   const contextMenu = Menu.buildFromTemplate([
     {
