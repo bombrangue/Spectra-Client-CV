@@ -88,14 +88,14 @@ bool ScreenCapture::Initialize(int monitorIndex) {
             hr = m_device->CreateTexture2D(&texDesc, nullptr, &m_stagingTexture);
             if (FAILED(hr)) return false;
 
-            std::cout << "[DEBUG] Capture initialized: Adapter " << adapterIdx
+            std::cout << "[SCREENC-APTURE-INITIALIZE] Capture initialized: Adapter " << adapterIdx
                       << ", Monitor " << outputIdx
                       << " (" << m_width << "x" << m_height << ")" << std::endl;
             return true;
         }
     }
 
-    std::cerr << "[ERROR] Monitor index " << monitorIndex << " not found on any adapter." << std::endl;
+    std::cerr << "[ERROR-SCREEN-CAPTURE-INITIALIZE] Monitor index " << monitorIndex << " not found on any adapter." << std::endl;
     return false;
 }
 
@@ -119,7 +119,7 @@ cv::Mat ScreenCapture::GetLatestFrame() {
     HRESULT hr = m_deskDupl->AcquireNextFrame(100, &frameInfo, &desktopResource);
     if (FAILED(hr)) {
         if (hr == DXGI_ERROR_ACCESS_LOST) {
-            std::cout << "[DEBUG] DXGI_ERROR_ACCESS_LOST detected. Reinitializing..." << std::endl;
+            std::cout << "[ERROR-SCREEN-CAPTURE-ACQUIRE-FRAME] DXGI_ERROR_ACCESS_LOST detected. Reinitializing..." << std::endl;
             m_deskDupl.Reset(); // Force re-initialization on next call
         }
         return cv::Mat();

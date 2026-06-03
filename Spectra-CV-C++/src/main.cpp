@@ -17,8 +17,48 @@
 #include "ScreenCapture.h"
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <dxgi.h>
+#include <wrl/client.h>
 
 using json = nlohmann::json;
+
+int auto_detect_valorant_monitor(int current_index) {
+    HWND hwnd = FindWindowA("UnrealWindow", "VALORANT  ");
+    if (!hwnd) hwnd = FindWindowA(NULL, "VALORANT  ");
+    if (!hwnd) hwnd = FindWindowA(NULL, "VALORANT");
+    
+    if (!hwnd) return current_index; // Default to current if game not found
+    
+    HMONITOR hMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+    if (!hMonitor) return current_index;
+
+    Microsoft::WRL::ComPtr<IDXGIFactory1> dxgiFactory;
+    if (FAILED(CreateDXGIFactory1(__uuidof(IDXGIFactory1), (void**)&dxgiFactory))) return current_index;
+
+    int totalOutputIndex = 0;
+    for (UINT adapterIdx = 0; ; adapterIdx++) {
+        Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter;
+        if (dxgiFactory->EnumAdapters1(adapterIdx, &adapter) == DXGI_ERROR_NOT_FOUND) break;
+
+        for (UINT outputIdx = 0; ; outputIdx++) {
+            Microsoft::WRL::ComPtr<IDXGIOutput> dxgiOutput;
+            if (adapter->EnumOutputs(outputIdx, &dxgiOutput) == DXGI_ERROR_NOT_FOUND) break;
+
+            DXGI_OUTPUT_DESC desc;
+            dxgiOutput->GetDesc(&desc);
+            if (!desc.AttachedToDesktop) {
+                totalOutputIndex++;
+                continue;
+            }
+
+            if (desc.Monitor == hMonitor) {
+                return totalOutputIndex;
+            }
+            totalOutputIndex++;
+        }
+    }
+    return current_index;
+}
 
 struct ColorBound {
     cv::Scalar lower;
@@ -36,15 +76,13 @@ struct ZoneConfig {
     double min_value = 0.0;
     double max_drop_per_s = -1.0; // -1.0 = no physical limit
     double max_refill_per_s = -1.0;
+    bool allow_jump_to_max = false;
     std::vector<std::string> allowed_formats;
 };
 
 // --- MODE DEBUG ---
 bool DEBUG_MODE = true;
-std::string DEBUG_AGENT_NAME = "Chamber"; // Modify to test another agent
-
-// --- SCREEN SELECTION ---
-int MONITOR_INDEX = 0; // 0 = Primary Screen, 1 = Secondary Screen, etc.
+std::string DEBUG_AGENT_NAME = "Neon"; // Modify to test another agent
 
 // --- FRAME RATE LIMITER (FPS) ---
 int TARGET_FPS = 10; // Max 30 FPS (drastically reduces CPU usage)
@@ -53,6 +91,7 @@ std::vector<ZoneConfig> active_zones;
 std::string current_agent_name = "";
 std::string current_phase = "combat"; // "buy_phase" or "combat"
 std::mutex config_mutex;
+int MONITOR_INDEX = 0;
 int screen_width = 2560;
 int screen_height = 1440;
 json last_state;
@@ -71,24 +110,72 @@ void load_templates() {
     raw_templates.clear();
     std::vector<std::string> names = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "dot",
                                       "a_bullet_0", "a_bullet_1", "a_bullet_2", "a_bullet_3", 
-                                      "a_bullet_4", "a_bullet_5", "a_bullet_6", "a_bullet_7", "a_bullet_8"};
+                                      "a_bullet_4", "a_bullet_5", "a_bullet_6", "a_bullet_7", "a_bullet_8",
+                                      "fuel_0", "fuel_1", "fuel_2", "fuel_3", "fuel_4", 
+                                      "fuel_5", "fuel_6", "fuel_7", "fuel_8", "fuel_9"};
     
-    // Auto-scaling: if the player plays in 1080p or 4k, but templates were captured in 1440p
-    double scale_factor = (double)screen_height / 1440.0;
-    if (scale_factor <= 0.1) scale_factor = 1.0; // Safety against 0 height frames
+    std::string base_template_dir = get_exe_dir() + "/templates";
+    int closest_width = 2560;
+    int closest_height = 1440; // Default fallback height if no folders are found
+    std::string closest_folder = "";
+    int min_diff = 999999;
 
+    // 1. Scan the templates directory for resolution folders (e.g., "1920x1080", "2560x1440")
+    if (std::filesystem::exists(base_template_dir)) {
+        for (const auto& entry : std::filesystem::directory_iterator(base_template_dir)) {
+            if (entry.is_directory()) {
+                std::string folder_name = entry.path().filename().string();
+                size_t x_pos = folder_name.find('x');
+                if (x_pos != std::string::npos) {
+                    try {
+                        int w = std::stoi(folder_name.substr(0, x_pos));
+                        int h = std::stoi(folder_name.substr(x_pos + 1));
+                        int diff = std::abs(w - screen_width) + std::abs(h - screen_height);
+                        if (diff < min_diff) {
+                            min_diff = diff;
+                            closest_width = w;
+                            closest_height = h;
+                            closest_folder = folder_name;
+                        }
+                    } catch (...) {
+                        // Ignore folders that don't match the expected format
+                    }
+                }
+            }
+        }
+    }
+
+    std::string target_dir = base_template_dir;
+    if (!closest_folder.empty()) {
+        target_dir += "/" + closest_folder;
+        if (DEBUG_MODE) std::cout << "[DEBUG] Selected template resolution folder: " << closest_folder << " (W:" << closest_width << " H:" << closest_height << ")" << std::endl;
+    } else {
+        if (DEBUG_MODE) std::cout << "[DEBUG] No resolution folders found, defaulting to base templates directory (assuming 8K/7680x4320)." << std::endl;
+    }
+
+    // 2. Calculate the uniform scaling factor based on Unreal Engine's 'Fit' logic
+    // We use the same ui_scale logic here to ensure templates maintain their native aspect ratio (no ovals).
+    double ui_scale_current = std::min(screen_width / 1920.0, screen_height / 1080.0);
+    double ui_scale_template = std::min(closest_width / 1920.0, closest_height / 1080.0);
+    double uniform_scale = ui_scale_current / ui_scale_template;
+
+    if (uniform_scale <= 0.1) uniform_scale = 1.0; // Safety
+
+    // 3. Load and scale
     for (const auto& name : names) {
-        std::string path = get_exe_dir() + "/templates/" + name + ".png";
+        std::string path = target_dir + "/" + name + ".png";
         cv::Mat img = cv::imread(path, cv::IMREAD_COLOR);
         if (!img.empty()) {
-            if (std::abs(scale_factor - 1.0) > 0.01) { // If the resolution is not 1080p
+            if (std::abs(uniform_scale - 1.0) > 0.01) {
                 cv::Mat resized;
-                cv::resize(img, resized, cv::Size(), scale_factor, scale_factor, cv::INTER_LINEAR);
+                // INTER_AREA is best for downscaling, INTER_LINEAR is best for upscaling
+                int interpolation = (uniform_scale < 1.0) ? cv::INTER_AREA : cv::INTER_LINEAR;
+                cv::resize(img, resized, cv::Size(), uniform_scale, uniform_scale, interpolation);
                 raw_templates[name] = resized;
             } else {
                 raw_templates[name] = img;
             }
-            if (DEBUG_MODE) std::cout << "[DEBUG] Template loaded: " << path << " (Scale: " << scale_factor << "x)" << std::endl;
+            if (DEBUG_MODE) std::cout << "[DEBUG] Template loaded: " << path << " (Uniform Scale: " << uniform_scale << "x)" << std::endl;
         }
     }
 }
@@ -138,31 +225,32 @@ void load_config(const std::string& agent_name) {
         double pct_w = (double)zone["w_pct"] / 100.0;
         double pct_h = (double)zone["h_pct"] / 100.0;
 
-        // Unreal Engine UI Canvas Scaling Logic
-        double aspect = (double)screen_width / screen_height;
-        double canvas_width, canvas_height;
-
-        if (aspect < (16.0 / 9.0) - 0.01) {
-            // Stretched (e.g. 1024x1080) -> UI fits to Width
-            canvas_width = screen_width * (16.0 / 9.0);
-            canvas_height = screen_width; // Because canvas_width / (16/9) = screen_width
-        } else {
-            // Native or Ultrawide -> UI fits to Height
-            canvas_width = screen_height * (16.0 / 9.0);
-            canvas_height = screen_height;
-        }
+        // Unreal Engine Universal UI Scaling Logic (Fit to shortest side)
+        // Valorant's UI is anchored at 16:9 (1920x1080 baseline). 
+        // On non-16:9 screens, the UI scales proportionally to prevent cutoff, and anchors to the physical screen edges.
+        double ui_scale = std::min(screen_width / 1920.0, screen_height / 1080.0);
 
         // X is anchored from the center of the screen
-        double x_offset = (pct_x - 0.5) * canvas_width;
+        double x_offset = (pct_x - 0.5) * 1920.0 * ui_scale;
         int x = (int)std::round((screen_width / 2.0) + x_offset);
         
-        // Y is anchored from the BOTTOM of the screen
-        double dist_from_bottom = (1.0 - pct_y) * canvas_height;
+        // Y is anchored from the BOTTOM of the physical screen
+        double dist_from_bottom = (1.0 - pct_y) * 1080.0 * ui_scale;
         int y = (int)std::round(screen_height - dist_from_bottom);
         
-        // Width and Height scale proportionally
-        int w = std::max(1, (int)std::round(pct_w * canvas_width));
-        int h = std::max(1, (int)std::round(pct_h * canvas_height));
+        // Width and Height scale proportionally to the UI
+        int base_w = std::max(1, (int)std::round(pct_w * 1920.0 * ui_scale));
+        int base_h = std::max(1, (int)std::round(pct_h * 1080.0 * ui_scale));
+
+        // Add a generous safety margin to the ROI so templates (especially upscaled ones) always fit inside.
+        // This solves the 1080p bug where rounding errors made the template 1 pixel larger than the ROI, causing it to be silently skipped.
+        int margin_x = std::max(15, (int)(base_w * 0.3));
+        int margin_y = std::max(15, (int)(base_h * 0.3));
+
+        x -= margin_x;
+        y -= margin_y;
+        int w = base_w + (margin_x * 2);
+        int h = base_h + (margin_y * 2);
 
         // Clamp to physical screen bounds
         x = std::max(0, std::min(x, screen_width - 1));
@@ -179,6 +267,7 @@ void load_config(const std::string& agent_name) {
         if (zone.contains("min_value")) zc.min_value = zone["min_value"].get<double>();
         if (zone.contains("max_drop_per_s")) zc.max_drop_per_s = zone["max_drop_per_s"].get<double>();
         if (zone.contains("max_refill_per_s")) zc.max_refill_per_s = zone["max_refill_per_s"].get<double>();
+        if (zone.contains("allow_jump_to_max")) zc.allow_jump_to_max = zone["allow_jump_to_max"].get<bool>();
         
         if (zone.contains("allowed_formats")) {
             for (auto& fmt : zone["allowed_formats"]) {
@@ -186,10 +275,10 @@ void load_config(const std::string& agent_name) {
             }
         }
 
-        if ((zc.type == "color" || zc.type == "text" || zc.type == "text_bullet" || zc.type == "text_timer") && zone.contains("expected_color_rgb")) {
-            int h_tol = zone.value("h_tol", (zc.type == "text" || zc.type == "text_bullet" || zc.type == "text_timer") ? 15 : 5);
-            int s_tol = zone.value("s_tol", (zc.type == "text" || zc.type == "text_bullet" || zc.type == "text_timer") ? 40 : 10);
-            int v_tol = zone.value("v_tol", (zc.type == "text" || zc.type == "text_bullet" || zc.type == "text_timer") ? 200 : 150);
+        if ((zc.type == "color" || zc.type == "text" || zc.type == "text_bullet" || zc.type == "text_timer" || zc.type == "fuel") && zone.contains("expected_color_rgb")) {
+            int h_tol = zone.value("h_tol", (zc.type == "text" || zc.type == "text_bullet" || zc.type == "text_timer" || zc.type == "fuel") ? 15 : 5);
+            int s_tol = zone.value("s_tol", (zc.type == "text" || zc.type == "text_bullet" || zc.type == "text_timer" || zc.type == "fuel") ? 40 : 10);
+            int v_tol = zone.value("v_tol", (zc.type == "text" || zc.type == "text_bullet" || zc.type == "text_timer" || zc.type == "fuel") ? 200 : 150);
 
             for (auto& color : zone["expected_color_rgb"]) {
                 if (color.is_string()) {
@@ -208,21 +297,37 @@ void load_config(const std::string& agent_name) {
         }
 
         // Pre-process templates for text zones
-        if (zc.type == "text" || zc.type == "text_bullet" || zc.type == "text_timer") {
+        if (zc.type == "text" || zc.type == "text_bullet" || zc.type == "text_timer" || zc.type == "fuel") {
             for (const auto& [name, temp_img] : raw_templates) {
                 // Filter templates by type
-                if ((zc.type == "text" || zc.type == "text_timer") && name.find("a_bullet") != std::string::npos) continue;
+                if ((zc.type == "text" || zc.type == "text_timer" || zc.type == "fuel") && name.find("a_bullet") != std::string::npos) continue;
                 if (zc.type == "text_bullet" && name.find("a_bullet") == std::string::npos) continue;
+                
+                // Fuel specific filtering
+                if ((zc.type == "text" || zc.type == "text_timer" || zc.type == "text_bullet") && name.find("fuel_") != std::string::npos) continue;
+                if (zc.type == "fuel" && name.find("fuel_") == std::string::npos) continue;
 
-                cv::Mat gray, temp_mask;
+                cv::Mat gray, bgr, mask, lum_mask, temp_mask;
+                // We need to apply the EXACT same extraction logic to templates as the live screen!
                 cv::cvtColor(temp_img, gray, cv::COLOR_BGR2GRAY);
-                // Masked Grayscale: Isolate text from the purple background (around 116-137 in gray).
-                // A threshold at 145 isolates the text while preserving its anti-aliasing (gray > 145).
-                cv::threshold(gray, temp_mask, 145, 255, cv::THRESH_BINARY);
+                
+                // If it's a 1-channel image, convert to BGR first so inRange works as in live screen
+                if (temp_img.channels() == 1) {
+                    cv::cvtColor(temp_img, bgr, cv::COLOR_GRAY2BGR);
+                } else if (temp_img.channels() == 4) {
+                    cv::cvtColor(temp_img, bgr, cv::COLOR_BGRA2BGR);
+                } else {
+                    bgr = temp_img.clone();
+                }
+
+                // Since the user manually creates and perfects the templates in MS Paint, 
+                // we don't want to artificially dilate or distort them. 
+                // We just threshold at 65 to find the bounding box, but we keep the grayscale anti-aliasing!
+                cv::threshold(gray, temp_mask, 65, 255, cv::THRESH_BINARY);
                 
                 cv::Mat clean_gray = cv::Mat::zeros(gray.size(), CV_8UC1);
                 gray.copyTo(clean_gray, temp_mask);
-
+                
                 // Automatic crop to digit contour (removes useless margin)
                 cv::Rect bbox = cv::boundingRect(temp_mask);
                 if (bbox.width > 0 && bbox.height > 0) {
@@ -232,14 +337,15 @@ void load_config(const std::string& agent_name) {
                     bbox.height = std::min(clean_gray.rows - bbox.y, bbox.height + 2);
                     cv::Mat cropped = clean_gray(bbox).clone();
                     
-                    // Calculate the exact mathematical scale compared to 4320p native (8K templates)
-                    double base_scale = canvas_height / 4320.0;
+                    // The templates in `raw_templates` are already pre-scaled to the native screen resolution inside `load_templates`.
+                    // Therefore, the mathematically perfect scale for this resolution is exactly 1.0.
+                    double base_scale = 1.0;
                     
                     // We only need 3 scales around the mathematical perfect scale instead of 7 for standard fonts
                     std::vector<double> scales = {base_scale * 0.9, base_scale, base_scale * 1.1};
                     
-                    // Fuel gauges (type "text") are physically larger on the HUD than standard timers
-                    if (zc.type == "text") {
+                    // Fuel gauges (type "text" or "fuel") are physically larger on the HUD than standard timers
+                    if (zc.type == "text" || zc.type == "fuel") {
                         scales.push_back(base_scale * 1.25);
                         scales.push_back(base_scale * 1.4);
                         scales.push_back(base_scale * 1.55);
@@ -329,7 +435,7 @@ json process_zone(const cv::Mat& roi, const ZoneConfig& zc) {
         }
         return 0;
     } 
-    else if (zc.type == "text" || zc.type == "text_bullet" || zc.type == "text_timer") {
+    else if (zc.type == "text" || zc.type == "text_bullet" || zc.type == "text_timer" || zc.type == "fuel") {
         if (zc.binarized_templates.empty()) return 0;
 
         cv::Mat bgr, hsv, mask, clean_gray;
@@ -339,7 +445,6 @@ json process_zone(const cv::Mat& roi, const ZoneConfig& zc) {
         // 1. Target the text white (eliminates light green, sky blue, etc.)
         // Limited to 215 (85% pure white) because the top and bottom of '0' are thinner 
         // and appear slightly "gray" due to the game's anti-aliasing.
-        // If set to 240, it cuts the top of '0', making it "11", hence the "111" bug.
         cv::inRange(bgr, cv::Scalar(215, 215, 215), cv::Scalar(255, 255, 255), mask);
 
         // 2. STRICT FILTER PROBLEM: It destroys anti-aliasing on the edges (which are grayed).
@@ -351,12 +456,12 @@ json process_zone(const cv::Mat& roi, const ZoneConfig& zc) {
         // 3. Create a classic brightness mask to cut the background outside the dilated text.
         cv::Mat gray, lum_mask;
         cv::cvtColor(bgr, gray, cv::COLOR_BGR2GRAY);
-        cv::threshold(gray, lum_mask, 145, 255, cv::THRESH_BINARY);
+        cv::threshold(gray, lum_mask, 65, 255, cv::THRESH_BINARY);
         
         // 4. Combine: Keep bright pixels (>145) THAT ARE AROUND an ultra-white core!
         cv::bitwise_and(mask, lum_mask, mask);
 
-        bool show_debug = DEBUG_MODE && (zc.name.rfind("C", 0) == 0);
+
 
         // If the zone contains no valid text
         if (cv::countNonZero(mask) < 3) {
@@ -365,13 +470,6 @@ json process_zone(const cv::Mat& roi, const ZoneConfig& zc) {
 
         clean_gray = cv::Mat::zeros(gray.size(), CV_8UC1);
         gray.copyTo(clean_gray, mask);
-
-
-
-        // if (show_debug) std::cout << "[TEXT-DBG] " << zc.name
-        //     << " zone=" << clean_gray.cols << "x" << clean_gray.rows
-        //     << " white_pixels=" << cv::countNonZero(mask)
-        //     << " nb_templates=" << zc.binarized_templates.size() << std::endl;
 
         if (DEBUG_MODE) {
             static std::map<std::string, std::chrono::steady_clock::time_point> last_roi_saves;
@@ -393,7 +491,7 @@ json process_zone(const cv::Mat& roi, const ZoneConfig& zc) {
 
         struct Match { std::string digit; int x; double score; int w; };
         std::vector<Match> matches;
-        std::vector<std::pair<std::string, double>> best_scores_for_debug;
+
 
         // Increased threshold to 0.70 to completely eliminate false positives.
         // Fades and light backgrounds might now trigger an OCR failure (-1.0),
@@ -410,6 +508,10 @@ json process_zone(const cv::Mat& roi, const ZoneConfig& zc) {
             if (zc.type == "text_bullet" && real_name.find("a_bullet_") != std::string::npos) {
                 real_name = real_name.substr(9, 1);
             }
+            
+            if (zc.type == "fuel" && real_name.find("fuel_") != std::string::npos) {
+                real_name = real_name.substr(5, 1);
+            }
 
             if (clean_gray.rows < temp_mask.rows || clean_gray.cols < temp_mask.cols) {
                 continue; // No log here to avoid spamming with the 7 scales
@@ -419,18 +521,7 @@ json process_zone(const cv::Mat& roi, const ZoneConfig& zc) {
             // Template matching on Masked Grayscale
             cv::matchTemplate(clean_gray, temp_mask, res, cv::TM_CCOEFF_NORMED);
 
-            double minVal, maxVal;
-            cv::minMaxLoc(res, &minVal, &maxVal);
-            
-            bool found = false;
-            for (auto& pair : best_scores_for_debug) {
-                if (pair.first == real_name) {
-                    if (maxVal > pair.second) pair.second = maxVal;
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) best_scores_for_debug.push_back({real_name, maxVal});
+
             
             // Find all local maxima above the threshold
             for (int y = 0; y < res.rows; y++) {
@@ -457,14 +548,6 @@ json process_zone(const cv::Mat& roi, const ZoneConfig& zc) {
             }
         }
 
-        // if (show_debug) {
-        //     // Show the best scale for each digit
-        //     for (const auto& pair : best_scores_for_debug) {
-        //         if (pair.second > 0.4) {
-        //             std::cout << "[TEXT-DBG]   template '" << pair.first << "' max_score=" << pair.second 
-        //                       << (pair.second >= match_threshold ? " *** MATCH ***" : "") << std::endl;
-        //         }
-        //     }
         if (matches.empty()) {
             if (zc.type == "text_timer") return -1.0;
             return 0;
@@ -535,7 +618,6 @@ json process_zone(const cv::Mat& roi, const ZoneConfig& zc) {
                 }
             }
             if (!matched) {
-                if (show_debug && !result.empty()) std::cout << "[TEXT-DBG] Strict format rejection: '" << result << "'" << std::endl;
                 return -1.0;
             }
         } 
@@ -579,7 +661,6 @@ json process_zone(const cv::Mat& roi, const ZoneConfig& zc) {
             }
 
             if (!valid) {
-                //if (show_debug && !result.empty()) std::cout << "[TEXT-DBG] Security rejection, invalid format: '" << result << "'" << std::endl;
                 return -1.0;
             }
         }
@@ -648,6 +729,9 @@ int main() {
     // 16 threads for each matchTemplate, it creates a massive thread storm causing 80% CPU usage!
     cv::setNumThreads(1);
 
+    // Auto-detect Valorant monitor at startup
+    MONITOR_INDEX = auto_detect_valorant_monitor(MONITOR_INDEX);
+
     ScreenCapture capture;
     if (!capture.Initialize(MONITOR_INDEX)) {
         std::cerr << "{\"error\": \"DXGI Screen Capture failed to initialize\"}" << std::endl;
@@ -690,15 +774,18 @@ int main() {
     while (true) {
         auto frame_start = std::chrono::steady_clock::now();
         
-        if (std::chrono::duration_cast<std::chrono::seconds>(frame_start - last_dxgi_check).count() >= 30) {
+        if (std::chrono::duration_cast<std::chrono::seconds>(frame_start - last_dxgi_check).count() >= 10) {
             last_dxgi_check = frame_start;
-            int current_sys_w = GetSystemMetrics(SM_CXSCREEN);
-            int current_sys_h = GetSystemMetrics(SM_CYSCREEN);
-            if (current_sys_w != screen_width || current_sys_h != screen_height) {
+            
+            // Auto-detect if Valorant is on a different monitor
+            int val_monitor = auto_detect_valorant_monitor(MONITOR_INDEX);
+            if (val_monitor != MONITOR_INDEX) {
                 if (DEBUG_MODE) {
-                    send_message("[DEBUG] Periodic DXGI check (30s)... Resolution mismatch detected (" + std::to_string(current_sys_w) + "x" + std::to_string(current_sys_h) + "), reinitializing capture.");
+                    send_message("[DEBUG] Valorant window moved to monitor " + std::to_string(val_monitor) + ", reinitializing capture.");
                 }
+                MONITOR_INDEX = val_monitor;
                 capture.Initialize(MONITOR_INDEX);
+                continue; // Skip the rest to avoid using an invalid frame
             }
         }
 
@@ -779,7 +866,7 @@ int main() {
                     
                     if (v == -1.0) {
                         // OCR completely failed
-                        if (phys.initialized && zc.type == "text") {
+                        if (phys.initialized && (zc.type == "text" || zc.type == "fuel")) {
                             phys.simulated_value += phys.velocity * dt;
                             if (zc.max_value >= 0 && phys.simulated_value > zc.max_value) phys.simulated_value = zc.max_value;
                             if (phys.simulated_value < zc.min_value) phys.simulated_value = zc.min_value;
@@ -806,11 +893,11 @@ int main() {
                             double elapsed = std::chrono::duration<double>(now - phys.last_accepted_time).count();
                             double last_v = phys.last_accepted_value;
                             
-                            if (zc.type == "text" || zc.type == "text_bullet" || zc.type == "text_timer") {
+                            if (zc.type == "text" || zc.type == "text_bullet" || zc.type == "text_timer" || zc.type == "fuel") {
                                 double diff = v - last_v;
                                 
                                 // Allow jump from 0.0 for continuous gauges (Viper), but not for bullets/timers
-                                if (last_v == 0.0 && zc.type == "text") {
+                                if (last_v == 0.0 && (zc.type == "text" || zc.type == "fuel")) {
                                     accepted = true;
                                 } else {
                                     if (diff < 0) { // Drop
@@ -841,8 +928,8 @@ int main() {
                                         } else if (refill_limit >= 0) {
                                             double max_refill = (elapsed * refill_limit) + 1.5; // Reduced tolerance
                                             if (diff > max_refill) {
-                                                if (zc.max_value > 0.0 && v == zc.max_value) {
-                                                    accepted = true; // Authorize instant jump to max_value (e.g., Neon fuel resets to 100)
+                                                if (zc.allow_jump_to_max && zc.max_value > 0.0 && v == zc.max_value) {
+                                                    accepted = true; // Authorize instant jump to max_value explicitly permitted by user
                                                 } else {
                                                     accepted = false;
                                                 }
@@ -866,7 +953,7 @@ int main() {
                                     if (diff < 0) {
                                         if (zc.type == "text_timer" && diff < -3.0) anti_desync_allowed = false;
                                         if (zc.type == "text_bullet" && diff < -2.0) anti_desync_allowed = false;
-                                        if (zc.type == "text" && zc.max_drop_per_s >= 0) {
+                                        if ((zc.type == "text" || zc.type == "fuel") && zc.max_drop_per_s >= 0) {
                                             double max_drop = (elapsed * zc.max_drop_per_s) + 5.0; // 5.0 absolute margin for anti-desync
                                             if (-diff > max_drop) anti_desync_allowed = false;
                                         }
@@ -893,7 +980,7 @@ int main() {
                         }
 
                         if (accepted) {
-                            if (phys.initialized && (zc.type == "text" || zc.type == "text_bullet" || zc.type == "text_timer") && v > 0.0) {
+                            if (phys.initialized && (zc.type == "text" || zc.type == "text_bullet" || zc.type == "text_timer" || zc.type == "fuel") && v > 0.0) {
                                 double elapsed = std::chrono::duration<double>(now - phys.last_accepted_time).count();
                                 
                                 if (zc.type == "text_timer") {
@@ -918,11 +1005,11 @@ int main() {
                             phys.initialized = true;
                             suspicious_drop_counters[zc.name] = 0;
                             
-                            if (zc.type == "text" || zc.type == "text_bullet" || zc.type == "text_timer") current_state[zc.name] = std::round(v);
+                            if (zc.type == "text" || zc.type == "text_bullet" || zc.type == "text_timer" || zc.type == "fuel") current_state[zc.name] = std::round(v);
                             else current_state[zc.name] = v;
                         } else {
                             // Value ignored (aberrant frame) -> Interpolation or Freeze
-                            if (phys.initialized && zc.type == "text") {
+                            if (phys.initialized && (zc.type == "text" || zc.type == "fuel")) {
                                 phys.simulated_value += phys.velocity * dt;
                                 if (zc.max_value >= 0 && phys.simulated_value > zc.max_value) phys.simulated_value = zc.max_value;
                                 if (phys.simulated_value < zc.min_value) phys.simulated_value = zc.min_value;

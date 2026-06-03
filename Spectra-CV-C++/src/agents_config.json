@@ -58,7 +58,15 @@
       "y_pct": 90.06844,
       "w_pct": 1,
       "h_pct": 1.4,
-      "type": "text_timer"
+      "type": "text_timer",
+      "max_value": 30.0,
+      "max_drop_per_s": 1.1,
+      "max_refill_per_s": -1.0,
+      "allowed_formats": [
+        "#",
+        "##",
+        "#.#"
+      ]
     },
     "A_bullet": {
       "x_pct": 46.64062,
@@ -72,7 +80,15 @@
       "y_pct": 90.06844,
       "w_pct": 1,
       "h_pct": 1.4,
-      "type": "text_timer"
+      "type": "text_timer",
+      "max_value": 30.0,
+      "max_drop_per_s": 1.1,
+      "max_refill_per_s": -1.0,
+      "allowed_formats": [
+        "#",
+        "##",
+        "#.#"
+      ]
     }
   },
   "Clove": {
@@ -97,7 +113,15 @@
       "y_pct": 90.06844,
       "w_pct": 1,
       "h_pct": 1.4,
-      "type": "text_timer"
+      "type": "text_timer",
+      "max_value": 45.0,
+      "max_drop_per_s": 1.1,
+      "max_refill_per_s": -1.0,
+      "allowed_formats": [
+        "#",
+        "##",
+        "#.#"
+      ]
     },
     "Ult_timer": {
       "x_pct": 43.984375,
@@ -148,7 +172,15 @@
       "y_pct": 90.06844,
       "w_pct": 1,
       "h_pct": 1.4,
-      "type": "text_timer"
+      "type": "text_timer",
+      "max_value": 60.0,
+      "max_drop_per_s": 1.1,
+      "max_refill_per_s": -1.0,
+      "allowed_formats": [
+        "#",
+        "##",
+        "#.#"
+      ]
     }
   },
   "Deadlock": {
@@ -203,28 +235,60 @@
       "y_pct": 90.06844,
       "w_pct": 1,
       "h_pct": 1.4,
-      "type": "text_timer"
+      "type": "text_timer",
+      "max_value": 20.0,
+      "max_drop_per_s": 1.1,
+      "max_refill_per_s": -1.0,
+      "allowed_formats": [
+        "#",
+        "##",
+        "#.#"
+      ]
     },
     "A_timer": {
       "x_pct": 48.4,
       "y_pct": 90.06844,
       "w_pct": 1,
       "h_pct": 1.4,
-      "type": "text_timer"
+      "type": "text_timer",
+      "max_value": 20.0,
+      "max_drop_per_s": 1.1,
+      "max_refill_per_s": -1.0,
+      "allowed_formats": [
+        "#",
+        "##",
+        "#.#"
+      ]
     },
     "E_timer": {
       "x_pct": 54.25781,
       "y_pct": 90.06844,
       "w_pct": 1,
       "h_pct": 1.4,
-      "type": "text_timer"
+      "type": "text_timer",
+      "max_value": 20.0,
+      "max_drop_per_s": 1.1,
+      "max_refill_per_s": -1.0,
+      "allowed_formats": [
+        "#",
+        "##",
+        "#.#"
+      ]
     },
     "X_timer": {
       "x_pct": 59.6875,
       "y_pct": 90.06844,
       "w_pct": 1,
       "h_pct": 1.4,
-      "type": "text_timer"
+      "type": "text_timer",
+      "max_value": 20.0,
+      "max_drop_per_s": 1.1,
+      "max_refill_per_s": -1.0,
+      "allowed_formats": [
+        "#",
+        "##",
+        "#.#"
+      ]
     }
   },
   "Harbor": {},
@@ -319,14 +383,30 @@
       "y_pct": 90.06844,
       "w_pct": 1,
       "h_pct": 1.4,
-      "type": "text_timer"
+      "type": "text_timer",
+      "max_value": 20.0,
+      "max_drop_per_s": 1.1,
+      "max_refill_per_s": -1.0,
+      "allowed_formats": [
+        "#",
+        "##",
+        "#.#"
+      ]
     },
     "E_timer": {
       "x_pct": 54.25781,
       "y_pct": 90.06844,
       "w_pct": 1,
       "h_pct": 1.4,
-      "type": "text_timer"
+      "type": "text_timer",
+      "max_value": 20.0,
+      "max_drop_per_s": 1.1,
+      "max_refill_per_s": -1.0,
+      "allowed_formats": [
+        "#",
+        "##",
+        "#.#"
+      ]
     }
   },
   "Miks": {
@@ -367,7 +447,15 @@
       "y_pct": 90.06844,
       "w_pct": 1,
       "h_pct": 1.4,
-      "type": "text_timer"
+      "type": "text_timer",
+      "max_value": 45.0,
+      "max_drop_per_s": 1.1,
+      "max_refill_per_s": -1.0,
+      "allowed_formats": [
+        "#",
+        "##",
+        "#.#"
+      ]
     }
   },
   "Neon": {
@@ -376,7 +464,16 @@
       "y_pct": 90.31111,
       "w_pct": 1.8,
       "h_pct": 1.6,
-      "type": "text"
+      "type": "fuel",
+      "max_value": 100.0,
+      "max_drop_per_s": 11,
+      "max_refill_per_s": 2,
+      "allowed_formats": [
+        "#",
+        "##",
+        "###"
+      ],
+      "allow_jump_to_max": true
     }
   },
   "Omen": {
@@ -417,7 +514,15 @@
       "y_pct": 90.06844,
       "w_pct": 1,
       "h_pct": 1.4,
-      "type": "text_timer"
+      "type": "text_timer",
+      "max_value": 45.0,
+      "max_drop_per_s": 1.1,
+      "max_refill_per_s": -1.0,
+      "allowed_formats": [
+        "#",
+        "##",
+        "#.#"
+      ]
     },
     "Ult_timer": {
       "x_pct": 43.984375,
@@ -534,14 +639,30 @@
       "y_pct": 90.06844,
       "w_pct": 1,
       "h_pct": 1.4,
-      "type": "text_timer"
+      "type": "text_timer",
+      "max_value": 60.0,
+      "max_drop_per_s": 1.1,
+      "max_refill_per_s": -1.0,
+      "allowed_formats": [
+        "#",
+        "##",
+        "#.#"
+      ]
     },
     "Skye_fuel": {
       "x_pct": 49.10156,
       "y_pct": 90.31111,
       "w_pct": 1.8,
       "h_pct": 1.6,
-      "type": "text"
+      "type": "fuel",
+      "max_value": 100.0,
+      "max_drop_per_s": 100,
+      "max_refill_per_s": -1.0,
+      "allowed_formats": [
+        "#",
+        "##",
+        "###"
+      ]
     }
   },
   "Sova": {
@@ -622,7 +743,15 @@
       "y_pct": 90.06844,
       "w_pct": 1,
       "h_pct": 1.4,
-      "type": "text_timer"
+      "type": "text_timer",
+      "max_value": 60.0,
+      "max_drop_per_s": 1.1,
+      "max_refill_per_s": -1.0,
+      "allowed_formats": [
+        "#",
+        "##",
+        "#.#"
+      ]
     },
     "Veto_ult": {
       "x_pct": 31.25,
@@ -643,7 +772,15 @@
       "y_pct": 90.31111,
       "w_pct": 1.8,
       "h_pct": 1.6,
-      "type": "text"
+      "type": "fuel",
+      "max_value": 100.0,
+      "max_drop_per_s": 30,
+      "max_refill_per_s": 30,
+      "allowed_formats": [
+        "#",
+        "##",
+        "###"
+      ]
     }
   },
   "Vyse": {
@@ -668,7 +805,15 @@
       "y_pct": 90.06844,
       "w_pct": 1,
       "h_pct": 1.4,
-      "type": "text_timer"
+      "type": "text_timer",
+      "max_value": 60.0,
+      "max_drop_per_s": 1.1,
+      "max_refill_per_s": -1.0,
+      "allowed_formats": [
+        "#",
+        "##",
+        "#.#"
+      ]
     }
   },
   "Waylay": {},
