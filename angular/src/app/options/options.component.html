@@ -40,6 +40,49 @@
           ></p-toggleswitch>
         </div>
       </div>
+      
+      <div class="flex items-center gap-4 mt-4 p-4 border rounded bg-surface-50">
+        <span class="font-bold">Data Source:</span>
+        <span [class.text-primary]="data.cvMode === 'GEP'" class="font-semibold">GEP (Overwolf)</span>
+        <p-toggleswitch
+          id="CvModeSwitch"
+          [ngModel]="data.cvMode === 'CV'"
+          (onChange)="onCvModeChange($event)"
+        ></p-toggleswitch>
+        <span [class.text-primary]="data.cvMode === 'CV'" class="font-semibold">Spectra CV</span>
+      </div>
     </div>
   </blockable-div>
 </div>
+
+<p-dialog 
+  header="⚠️ Important: Spectra CV Mode" 
+  [(visible)]="showCvWarning" 
+  [modal]="true" 
+  [closable]="false"
+  [draggable]="false"
+  [style]="{width: '50vw'}">
+  
+  <p>To use Spectra CV Mode instead of GEP, you must configure your game correctly:</p>
+  <ul class="list-disc ml-6 mt-2 mb-4">
+    <li>The game resolution must be set to exactly <strong>1080p (1920x1080)</strong>.</li>
+    <li>The game must be running in the foreground on your screen.</li>
+    <li>The <strong>Scoreboard</strong> must be open and visible.</li>
+    <li>The background behind the scoreboard must be <strong>black</strong> (AFK view).</li>
+  </ul>
+  
+  <p class="font-semibold text-yellow-500">
+    Spectra CV will start analyzing the screen as soon as you confirm.
+  </p>
+
+  <ng-template #footer>
+    <div class="flex justify-end gap-2">
+      <p-button label="Cancel" severity="secondary" (onClick)="cancelCvMode()" />
+      <p-button 
+        [label]="cvWarningTimer > 0 ? 'I understand (' + cvWarningTimer + 's)' : 'Confirm & Switch'" 
+        [disabled]="cvWarningTimer > 0" 
+        severity="danger" 
+        (onClick)="confirmCvMode()" />
+    </div>
+  </ng-template>
+</p-dialog>

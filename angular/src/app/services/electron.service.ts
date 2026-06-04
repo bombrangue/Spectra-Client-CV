@@ -112,6 +112,12 @@ export class ElectronService {
     this.api.setStartupSettings(enabled, startMinimized, aux);
   }
 
+  public setCVMode(mode: 'OFF' | 'MAIN' | 'AUX') {
+    if (this.api.setCVMode) {
+      this.api.setCVMode(mode);
+    }
+  }
+
   // Close confirmation flow
   public onConfirmClose(callback: () => void) {
     this.api.onConfirmClose(callback);

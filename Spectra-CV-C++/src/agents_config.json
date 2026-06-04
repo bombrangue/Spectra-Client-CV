@@ -1,4 +1,162 @@
 {
+  "admin_view": {
+    "Scoreboard": {
+      "scoreboard_0": {
+        "name": {},
+        "character": {
+          "x_pct": 29.6875,
+          "y_pct": 31.4814814815,
+          "w_pct": 2.34375,
+          "h_pct": 2.7777777778,
+          "type": "icon",
+          "icon_prefix": "character_",
+          "game_bg_colors": [
+            "#1C3A36",
+            "#26574F"
+          ],
+          "template_bg_color": "#26574F"
+        },
+        "team": {
+          "type": "constant",
+          "value": "1"
+        },
+        "shield": {
+          "x_pct": 61.1979166667,
+          "y_pct": 31.4814814815,
+          "w_pct": 1.40625,
+          "h_pct": 2.7777777778,
+          "type": "icon",
+          "icon_prefix": "shield_",
+          "game_bg_colors": [
+            "#1C3A36",
+            "#26574F"
+          ],
+          "template_bg_color": "#26574F"
+        },
+        "weapon": {
+          "x_pct": 54.9479166667,
+          "y_pct": 31.4814814815,
+          "w_pct": 6.25,
+          "h_pct": 2.7777777778,
+          "type": "icon",
+          "icon_prefix": "weapon_",
+          "game_bg_colors": [
+            "#1C3A36",
+            "#26574F"
+          ],
+          "template_bg_color": "#26574F"
+        },
+        "spike": {
+          "x_pct": 27.7083333333,
+          "y_pct": 31.4814814815,
+          "w_pct": 1.9270833333,
+          "h_pct": 2.7777777778,
+          "type": "icon",
+          "icon_prefix": "spike_"
+        },
+        "ult_data": {
+          "x_pct": 42.3958333333,
+          "y_pct": 31.4814814815,
+          "w_pct": 6.09375,
+          "h_pct": 2.7777777778,
+          "type": "ult_fraction",
+          "icon_prefix": "ult_",
+          "game_bg_colors": [
+            "#1C3A36",
+            "#26574F"
+          ],
+          "template_bg_color": "#26574F",
+          "allowed_formats": [
+            "#/#",
+            "READY"
+          ]
+        },
+        "kills": {
+          "x_pct": 48.6979166667,
+          "y_pct": 31.4814814815,
+          "w_pct": 2.0138888889,
+          "h_pct": 2.7777777778,
+          "type": "text_raw",
+          "icon_prefix": "kda_",
+          "game_bg_colors": [
+            "#1C3A36",
+            "#26574F"
+          ],
+          "template_bg_color": "#26574F",
+          "allowed_formats": [
+            "#",
+            "##",
+            "###"
+          ]
+        },
+        "deaths": {
+          "x_pct": 50.7291666667,
+          "y_pct": 31.4814814815,
+          "w_pct": 2.0138888889,
+          "h_pct": 2.7777777778,
+          "type": "text_raw",
+          "icon_prefix": "kda_",
+          "game_bg_colors": [
+            "#1C3A36",
+            "#26574F"
+          ],
+          "template_bg_color": "#26574F",
+          "allowed_formats": [
+            "#",
+            "##",
+            "###"
+          ]
+        },
+        "assists": {
+          "x_pct": 52.7604166667,
+          "y_pct": 31.4814814815,
+          "w_pct": 2.0138888889,
+          "h_pct": 2.7777777778,
+          "type": "text_raw",
+          "icon_prefix": "kda_",
+          "game_bg_colors": [
+            "#1C3A36",
+            "#26574F"
+          ],
+          "template_bg_color": "#26574F",
+          "allowed_formats": [
+            "#",
+            "##",
+            "###"
+          ]
+        },
+        "money": {
+          "x_pct": 62.7604166667,
+          "y_pct": 31.4814814815,
+          "w_pct": 4.53125,
+          "h_pct": 2.7777777778,
+          "type": "text_raw",
+          "icon_prefix": "money_",
+          "game_bg_colors": [
+            "#1C3A36",
+            "#26574F"
+          ],
+          "template_bg_color": "#26574F",
+          "allowed_formats": [
+            "#",
+            "##",
+            "###",
+            "#,###",
+            "##,###"
+          ]
+        }
+      },
+      "scoreboard_1": {},
+      "scoreboard_2": {},
+      "scoreboard_3": {},
+      "scoreboard_4": {},
+      "scoreboard_5": {},
+      "scoreboard_6": {},
+      "scoreboard_7": {},
+      "scoreboard_8": {},
+      "scoreboard_9": {}
+    }
+  },
   "Astra": {},
   "Breach": {
     "A_charge2": {

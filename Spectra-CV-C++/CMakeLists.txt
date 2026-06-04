@@ -40,8 +40,8 @@ add_custom_command(TARGET SpectraCV POST_BUILD
         "${CMAKE_SOURCE_DIR}/src/agents_config.json"
         "$<TARGET_FILE_DIR:SpectraCV>/agents_config.json"
         
-    # Copier la DLL OpenCV pour éviter de devoir la remettre manuellement
+    # Copier la DLL OpenCV dynamiquement depuis l'installation locale de l'utilisateur
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "C:/Users/Viatris/Downloads/opencv/build/x64/vc16/bin/opencv_world4130d.dll"
+        "${OpenCV_DIR}/x64/vc16/bin/opencv_world4130d.dll"
         "$<TARGET_FILE_DIR:SpectraCV>/opencv_world4130d.dll"
 )

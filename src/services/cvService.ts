@@ -1,6 +1,7 @@
 import { spawn, ChildProcessWithoutNullStreams } from "child_process";
 import path from "path";
 import log from "electron-log";
+import { gepService } from "../main";
 
 function logWithTime(message: string) {
     const now = new Date();
@@ -16,6 +17,7 @@ export class CVService {
   private currentAgent: string = "";
   private currentPhase: string = "combat";
   private isConnected: boolean = false;
+  private currentMode: "OFF" | "MAIN" | "AUX" = "OFF";
 
   private constructor() {
     this.startCVProcess();
@@ -58,6 +60,11 @@ export class CVService {
             if (parsed.type === "state_update" && parsed.data) {
               logWithTime(`PLAYER Client received state from Spectra CV: ${JSON.stringify(parsed.data)}`);
               this.currentCVState = parsed.data;
+            } else if (parsed.type === "gep_info" && parsed.data) {
+              logWithTime(`Spectra CV mimicking GEP Info: ${JSON.stringify(parsed.data)}`);
+              if (gepService && this.currentMode === "MAIN") {
+                gepService.processInfoUpdate(parsed.data);
+              }
             } else if (parsed.info) {
               logWithTime(`Spectra CV Info: ${parsed.info}`);
             } else if (parsed.error) {
@@ -99,6 +106,19 @@ export class CVService {
 
   public getCVState(): any {
     return this.currentCVState;
+  }
+
+  public setCVMode(mode: "OFF" | "MAIN" | "AUX") {
+    if (this.currentMode === mode) return;
+    this.currentMode = mode;
+    logWithTime(`Setting Spectra CV Mode to: ${mode}`);
+    if (this.cvProcess && this.cvProcess.stdin) {
+      const cmd = {
+        action: "set_mode",
+        mode: this.currentMode
+      };
+      this.cvProcess.stdin.write(JSON.stringify(cmd) + "\n");
+    }
   }
 
   public setAgent(agentName: string) {

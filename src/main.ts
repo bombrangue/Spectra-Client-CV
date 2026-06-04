@@ -52,7 +52,7 @@ if (!lock) {
 
 let isAuxiliary = false;
 
-let gepService: GameEventsService;
+export let gepService: GameEventsService;
 const connService = ConnectorService.getInstance();
 let win!: Electron.Main.BrowserWindow;
 let tray: Tray | null = null;
@@ -151,6 +151,10 @@ const createWindow = () => {
   ipcMain.on("set-tray-setting", setTraySetting);
   ipcMain.on("open-external-link", openExternalLink);
   ipcMain.on("set-startup-settings", setStartupSettings);
+  ipcMain.on("set-cv-mode", (_event: any, mode: string) => {
+    const cvService = CVService.getInstance();
+    cvService.setCVMode(mode);
+  });
   ipcMain.on("midmatch-event", (_event: any, type: string) => {
     try {
       const toSend = { type: type, data: true };
@@ -323,6 +327,8 @@ app.whenReady().then(async () => {
 
   gepService = new GameEventsService(isAuxiliary);
   const cvService = CVService.getInstance();
+  // Pass initial mode to CVService based on startup args
+  cvService.setCVMode(isAuxiliary ? "AUX" : "OFF");
   
   overwolfSetup();
   deeplinkSetup();

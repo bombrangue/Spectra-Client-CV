@@ -14,6 +14,7 @@
 #include <iomanip>
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
+#include <opencv2/core/utils/logger.hpp>
 #include "ScreenCapture.h"
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -78,24 +79,37 @@ struct ZoneConfig {
     double max_refill_per_s = -1.0;
     bool allow_jump_to_max = false;
     std::vector<std::string> allowed_formats;
+    
+    // New features:
+    std::string icon_prefix;
+    std::vector<cv::Vec3b> game_bg_colors; // Stored in BGR
+    cv::Vec3b template_bg_color; // Stored in BGR
+    bool has_template_bg = false;
+    json constant_value;
 };
 
 // --- MODE DEBUG ---
 bool DEBUG_MODE = true;
-std::string DEBUG_AGENT_NAME = "Neon"; // Modify to test another agent
+std::string DEBUG_AGENT_NAME = "admin_view"; // Modify to test another agent
+
+// --- CV MODE ---
+std::string current_cv_mode = "OFF";
+
+// --- SCREEN SELECTION ---
+int MONITOR_INDEX = 0; // 0 = Primary Screen, 1 = Secondary Screen, etc.
 
 // --- FRAME RATE LIMITER (FPS) ---
 int TARGET_FPS = 10; // Max 30 FPS (drastically reduces CPU usage)
 
 std::vector<ZoneConfig> active_zones;
 std::string current_agent_name = "";
-std::string current_phase = "combat"; // "buy_phase" or "combat"
+std::string current_phase = "buy_phase"; // "buy_phase" or "combat"
 std::mutex config_mutex;
-int MONITOR_INDEX = 0;
 int screen_width = 2560;
 int screen_height = 1440;
 json last_state;
-bool force_debug_screenshot = false;
+json last_nested_state;
+bool force_debug_screenshot = true;
 
 std::map<std::string, cv::Mat> raw_templates;
 
@@ -106,22 +120,28 @@ std::string get_exe_dir() {
     return exe_path.substr(0, exe_path.find_last_of("\\/"));
 }
 
-void load_templates() {
+void load_templates(const std::string& agent_name = "") {
     raw_templates.clear();
-    std::vector<std::string> names = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "dot",
-                                      "a_bullet_0", "a_bullet_1", "a_bullet_2", "a_bullet_3", 
-                                      "a_bullet_4", "a_bullet_5", "a_bullet_6", "a_bullet_7", "a_bullet_8",
-                                      "fuel_0", "fuel_1", "fuel_2", "fuel_3", "fuel_4", 
-                                      "fuel_5", "fuel_6", "fuel_7", "fuel_8", "fuel_9"};
     
     std::string base_template_dir = get_exe_dir() + "/templates";
-    int closest_width = 2560;
-    int closest_height = 1440; // Default fallback height if no folders are found
+    bool skip_resolution_scan = false;
+    int closest_width = 7680;
+    int closest_height = 4320; // Default fallback height if no folders are found
     std::string closest_folder = "";
     int min_diff = 999999;
+    
+    if (!agent_name.empty() && std::filesystem::exists(base_template_dir + "/" + agent_name)) {
+        base_template_dir += "/" + agent_name;
+        if (agent_name == "admin_view") {
+            skip_resolution_scan = true;
+            closest_width = 1920;
+            closest_height = 1080;
+            if (DEBUG_MODE) std::cout << "[DEBUG] Using flat template structure for " << agent_name << " (assuming 1920x1080)." << std::endl;
+        }
+    }
 
     // 1. Scan the templates directory for resolution folders (e.g., "1920x1080", "2560x1440")
-    if (std::filesystem::exists(base_template_dir)) {
+    if (!skip_resolution_scan && std::filesystem::exists(base_template_dir)) {
         for (const auto& entry : std::filesystem::directory_iterator(base_template_dir)) {
             if (entry.is_directory()) {
                 std::string folder_name = entry.path().filename().string();
@@ -146,36 +166,28 @@ void load_templates() {
     }
 
     std::string target_dir = base_template_dir;
-    if (!closest_folder.empty()) {
-        target_dir += "/" + closest_folder;
-        if (DEBUG_MODE) std::cout << "[DEBUG] Selected template resolution folder: " << closest_folder << " (W:" << closest_width << " H:" << closest_height << ")" << std::endl;
-    } else {
-        if (DEBUG_MODE) std::cout << "[DEBUG] No resolution folders found, defaulting to base templates directory (assuming 8K/7680x4320)." << std::endl;
+    if (!skip_resolution_scan) {
+        if (!closest_folder.empty()) {
+            target_dir += "/" + closest_folder;
+            if (DEBUG_MODE) std::cout << "[DEBUG] Selected template resolution folder: " << closest_folder << " (W:" << closest_width << " H:" << closest_height << ")" << std::endl;
+        } else {
+            if (DEBUG_MODE) std::cout << "[DEBUG] No resolution folders found, defaulting to base templates directory (assuming 8K/7680x4320)." << std::endl;
+        }
     }
 
-    // 2. Calculate the uniform scaling factor based on Unreal Engine's 'Fit' logic
-    // We use the same ui_scale logic here to ensure templates maintain their native aspect ratio (no ovals).
-    double ui_scale_current = std::min(screen_width / 1920.0, screen_height / 1080.0);
-    double ui_scale_template = std::min(closest_width / 1920.0, closest_height / 1080.0);
-    double uniform_scale = ui_scale_current / ui_scale_template;
-
-    if (uniform_scale <= 0.1) uniform_scale = 1.0; // Safety
-
-    // 3. Load and scale
-    for (const auto& name : names) {
-        std::string path = target_dir + "/" + name + ".png";
-        cv::Mat img = cv::imread(path, cv::IMREAD_COLOR);
-        if (!img.empty()) {
-            if (std::abs(uniform_scale - 1.0) > 0.01) {
-                cv::Mat resized;
-                // INTER_AREA is best for downscaling, INTER_LINEAR is best for upscaling
-                int interpolation = (uniform_scale < 1.0) ? cv::INTER_AREA : cv::INTER_LINEAR;
-                cv::resize(img, resized, cv::Size(), uniform_scale, uniform_scale, interpolation);
-                raw_templates[name] = resized;
-            } else {
-                raw_templates[name] = img;
+    // 3. Load dynamically
+    if (std::filesystem::exists(target_dir)) {
+        for (const auto& entry : std::filesystem::directory_iterator(target_dir)) {
+            if (entry.is_regular_file() && entry.path().extension() == ".png") {
+                std::string path = entry.path().string();
+                std::string name = entry.path().stem().string(); // get filename without extension
+                
+                cv::Mat img = cv::imread(path, cv::IMREAD_COLOR);
+                if (!img.empty()) {
+                    raw_templates[name] = img;
+                    if (DEBUG_MODE) std::cout << "[DEBUG] Template loaded: " << name << " from " << path << std::endl;
+                }
             }
-            if (DEBUG_MODE) std::cout << "[DEBUG] Template loaded: " << path << " (Uniform Scale: " << uniform_scale << "x)" << std::endl;
         }
     }
 }
@@ -190,6 +202,22 @@ std::vector<int> hex_to_rgb(const std::string& hex) {
     int g = std::stoi(h.substr(2, 2), nullptr, 16);
     int b = std::stoi(h.substr(4, 2), nullptr, 16);
     return {r, g, b};
+}
+
+std::vector<std::pair<std::string, json>> gather_leaves(const json& node, const std::string& current_path) {
+    std::vector<std::pair<std::string, json>> leaves;
+    if (node.is_object()) {
+        if (node.contains("type")) {
+            leaves.push_back({current_path, node});
+        } else {
+            for (auto& [key, value] : node.items()) {
+                std::string new_path = current_path.empty() ? key : current_path + "." + key;
+                auto sub_leaves = gather_leaves(value, new_path);
+                leaves.insert(leaves.end(), sub_leaves.begin(), sub_leaves.end());
+            }
+        }
+    }
+    return leaves;
 }
 
 void load_config(const std::string& agent_name) {
@@ -213,39 +241,66 @@ void load_config(const std::string& agent_name) {
     active_zones.clear();
     current_agent_name = agent_name;
     last_state = json::object();
+    last_nested_state = json::object();
 
     auto agent_config = config[agent_name];
-    for (auto& [key, zone] : agent_config.items()) {
+    auto leaves = gather_leaves(agent_config, "");
+    
+    for (auto& [key, zone] : leaves) {
         ZoneConfig zc;
         zc.name = key;
         zc.type = zone.value("type", "color");
+        
+        if (zc.type == "constant") {
+            if (zone.contains("value")) zc.constant_value = zone["value"];
+            active_zones.push_back(zc);
+            continue; // Skip image processing for constants
+        }
+        
+        zc.icon_prefix = zone.value("icon_prefix", "");
+        
+        if (zone.contains("game_bg_colors")) {
+            for (auto& color : zone["game_bg_colors"]) {
+                if (color.is_string()) {
+                    auto rgb = hex_to_rgb(color.get<std::string>());
+                    zc.game_bg_colors.push_back(cv::Vec3b(rgb[2], rgb[1], rgb[0]));
+                }
+            }
+        }
+        
+        if (zone.contains("template_bg_color") && zone["template_bg_color"].is_string()) {
+            auto rgb = hex_to_rgb(zone["template_bg_color"].get<std::string>());
+            zc.template_bg_color = cv::Vec3b(rgb[2], rgb[1], rgb[0]);
+            zc.has_template_bg = true;
+        }
         
         double pct_x = (double)zone["x_pct"] / 100.0;
         double pct_y = (double)zone["y_pct"] / 100.0;
         double pct_w = (double)zone["w_pct"] / 100.0;
         double pct_h = (double)zone["h_pct"] / 100.0;
 
-        // Unreal Engine Universal UI Scaling Logic (Fit to shortest side)
-        // Valorant's UI is anchored at 16:9 (1920x1080 baseline). 
-        // On non-16:9 screens, the UI scales proportionally to prevent cutoff, and anchors to the physical screen edges.
-        double ui_scale = std::min(screen_width / 1920.0, screen_height / 1080.0);
+        // Unreal Engine UI Canvas Scaling Logic
+        // Valorant's UI logic is universal for all resolutions:
+        // The HUD is drawn on a virtual 16:9 canvas that perfectly scales to the physical screen height.
+        // Elements are anchored relative to the center of this 16:9 canvas.
+        double canvas_height = screen_height;
+        double canvas_width = screen_height * (16.0 / 9.0);
 
-        // X is anchored from the center of the screen
-        double x_offset = (pct_x - 0.5) * 1920.0 * ui_scale;
+        // X is anchored from the center of the UI canvas
+        double x_offset = (pct_x - 0.5) * canvas_width;
         int x = (int)std::round((screen_width / 2.0) + x_offset);
         
-        // Y is anchored from the BOTTOM of the physical screen
-        double dist_from_bottom = (1.0 - pct_y) * 1080.0 * ui_scale;
+        // Y is anchored from the bottom of the UI canvas
+        double dist_from_bottom = (1.0 - pct_y) * canvas_height;
         int y = (int)std::round(screen_height - dist_from_bottom);
         
-        // Width and Height scale proportionally to the UI
-        int base_w = std::max(1, (int)std::round(pct_w * 1920.0 * ui_scale));
-        int base_h = std::max(1, (int)std::round(pct_h * 1080.0 * ui_scale));
+        // Width and Height scale proportionally
+        int base_w = std::max(1, (int)std::round(pct_w * canvas_width));
+        int base_h = std::max(1, (int)std::round(pct_h * canvas_height));
 
-        // Add a generous safety margin to the ROI so templates (especially upscaled ones) always fit inside.
-        // This solves the 1080p bug where rounding errors made the template 1 pixel larger than the ROI, causing it to be silently skipped.
-        int margin_x = std::max(15, (int)(base_w * 0.3));
-        int margin_y = std::max(15, (int)(base_h * 0.3));
+        // No safety margin. The ROI is strictly bound to the exact mathematical percentage dimensions.
+        int margin_x = 0;
+        int margin_y = 0;
 
         x -= margin_x;
         y -= margin_y;
@@ -297,37 +352,54 @@ void load_config(const std::string& agent_name) {
         }
 
         // Pre-process templates for text zones
-        if (zc.type == "text" || zc.type == "text_bullet" || zc.type == "text_timer" || zc.type == "fuel") {
+        if (zc.type == "text" || zc.type == "text_bullet" || zc.type == "text_timer" || zc.type == "fuel" || zc.type == "text_raw" || zc.type == "ult_fraction") {
             for (const auto& [name, temp_img] : raw_templates) {
-                // Filter templates by type
-                if ((zc.type == "text" || zc.type == "text_timer" || zc.type == "fuel") && name.find("a_bullet") != std::string::npos) continue;
-                if (zc.type == "text_bullet" && name.find("a_bullet") == std::string::npos) continue;
-                
-                // Fuel specific filtering
-                if ((zc.type == "text" || zc.type == "text_timer" || zc.type == "text_bullet") && name.find("fuel_") != std::string::npos) continue;
-                if (zc.type == "fuel" && name.find("fuel_") == std::string::npos) continue;
-
-                cv::Mat gray, bgr, mask, lum_mask, temp_mask;
-                // We need to apply the EXACT same extraction logic to templates as the live screen!
-                cv::cvtColor(temp_img, gray, cv::COLOR_BGR2GRAY);
-                
-                // If it's a 1-channel image, convert to BGR first so inRange works as in live screen
-                if (temp_img.channels() == 1) {
-                    cv::cvtColor(temp_img, bgr, cv::COLOR_GRAY2BGR);
-                } else if (temp_img.channels() == 4) {
-                    cv::cvtColor(temp_img, bgr, cv::COLOR_BGRA2BGR);
+                if (!zc.icon_prefix.empty()) {
+                    if (name.find(zc.icon_prefix) != 0) continue;
                 } else {
-                    bgr = temp_img.clone();
+                    // Filter templates by type
+                    if ((zc.type == "text" || zc.type == "text_timer" || zc.type == "fuel") && name.find("a_bullet") != std::string::npos) continue;
+                    if (zc.type == "text_bullet" && name.find("a_bullet") == std::string::npos) continue;
+                    
+                    // Fuel specific filtering
+                    if ((zc.type == "text" || zc.type == "text_timer" || zc.type == "text_bullet" || zc.type == "text_raw" || zc.type == "ult_fraction") && name.find("fuel_") != std::string::npos) continue;
+                    if (zc.type == "fuel" && name.find("fuel_") == std::string::npos) continue;
                 }
 
-                // Since the user manually creates and perfects the templates in MS Paint, 
-                // we don't want to artificially dilate or distort them. 
-                // We just threshold at 65 to find the bounding box, but we keep the grayscale anti-aliasing!
-                cv::threshold(gray, temp_mask, 65, 255, cv::THRESH_BINARY);
+                cv::Mat gray, temp_mask;
+                
+                // Extracting text: A simple threshold at 130 perfectly removes the dark HUD background 
+                // while fully preserving the shape and anti-aliased borders of low-resolution text.
+                if (temp_img.channels() == 3 || temp_img.channels() == 4) {
+                    cv::cvtColor(temp_img, gray, cv::COLOR_BGR2GRAY);
+                } else {
+                    gray = temp_img.clone();
+                }
+                
+                if (zc.has_template_bg) {
+                    int tolerance = 15;
+                    cv::Mat temp_bgr = temp_img.clone();
+                    for (int y = 0; y < temp_bgr.rows; ++y) {
+                        for (int x = 0; x < temp_bgr.cols; ++x) {
+                            cv::Vec3b& pixel = temp_bgr.at<cv::Vec3b>(y, x);
+                            if (std::abs(pixel[0] - zc.template_bg_color[0]) <= tolerance &&
+                                std::abs(pixel[1] - zc.template_bg_color[1]) <= tolerance &&
+                                std::abs(pixel[2] - zc.template_bg_color[2]) <= tolerance) {
+                                gray.at<uchar>(y, x) = 0; // Force background to black
+                            }
+                        }
+                    }
+                }
+
+                if (zc.type == "text_raw" || zc.type == "ult_fraction") {
+                    temp_mask = gray.clone();
+                } else {
+                    cv::threshold(gray, temp_mask, 130, 255, cv::THRESH_BINARY);
+                }
                 
                 cv::Mat clean_gray = cv::Mat::zeros(gray.size(), CV_8UC1);
                 gray.copyTo(clean_gray, temp_mask);
-                
+
                 // Automatic crop to digit contour (removes useless margin)
                 cv::Rect bbox = cv::boundingRect(temp_mask);
                 if (bbox.width > 0 && bbox.height > 0) {
@@ -394,10 +466,25 @@ void process_stdin() {
             int ms_remainder = now_ms % 1000;
             std::ostringstream ss;
 
-            if (command["action"] == "set_agent") {
-                ss << "[DEBUG] [" << time_buf << "." << std::setfill('0') << std::setw(3) << ms_remainder << "] Spectra CV received input (set_agent): " << command["agent"].get<std::string>();
+            if (command["action"] == "set_mode") {
+                current_cv_mode = command["mode"].get<std::string>();
+                ss << "[DEBUG] [" << time_buf << "." << std::setfill('0') << std::setw(3) << ms_remainder << "] Spectra CV Mode switched to: " << current_cv_mode;
                 send_message(ss.str());
-                load_config(command["agent"]);
+                if (current_cv_mode == "MAIN") {
+                    load_templates("admin_view");
+                    load_config("admin_view");
+                } else if (current_cv_mode == "OFF") {
+                    std::lock_guard<std::mutex> lock(config_mutex);
+                    active_zones.clear();
+                    current_agent_name = "";
+                }
+            } else if (command["action"] == "set_agent") {
+                if (current_cv_mode != "MAIN") {
+                    ss << "[DEBUG] [" << time_buf << "." << std::setfill('0') << std::setw(3) << ms_remainder << "] Spectra CV received input (set_agent): " << command["agent"].get<std::string>();
+                    send_message(ss.str());
+                    load_templates(command["agent"]);
+                    load_config(command["agent"]);
+                }
             } else if (command["action"] == "set_phase") {
                 current_phase = command["phase"].get<std::string>();
                 ss << "[DEBUG] [" << time_buf << "." << std::setfill('0') << std::setw(3) << ms_remainder << "] Spectra CV received input (set_phase): " << current_phase;
@@ -407,6 +494,24 @@ void process_stdin() {
             }
         } catch (...) {
             // Ignore parse errors on stdin
+        }
+    }
+}
+
+void apply_background_masking(cv::Mat& bgr, const ZoneConfig& zc) {
+    if (bgr.empty() || zc.game_bg_colors.empty()) return;
+    int tolerance = 15; // Small tolerance for compression artifacts
+    for (int y = 0; y < bgr.rows; ++y) {
+        for (int x = 0; x < bgr.cols; ++x) {
+            cv::Vec3b& pixel = bgr.at<cv::Vec3b>(y, x);
+            for (const auto& bg_color : zc.game_bg_colors) {
+                if (std::abs(pixel[0] - bg_color[0]) <= tolerance &&
+                    std::abs(pixel[1] - bg_color[1]) <= tolerance &&
+                    std::abs(pixel[2] - bg_color[2]) <= tolerance) {
+                    pixel = cv::Vec3b(0, 0, 0); // Force to pure black
+                    break;
+                }
+            }
         }
     }
 }
@@ -435,33 +540,72 @@ json process_zone(const cv::Mat& roi, const ZoneConfig& zc) {
         }
         return 0;
     } 
-    else if (zc.type == "text" || zc.type == "text_bullet" || zc.type == "text_timer" || zc.type == "fuel") {
+    else if (zc.type == "icon") {
+        cv::Mat bgr;
+        cv::cvtColor(roi, bgr, cv::COLOR_BGRA2BGR);
+        
+        apply_background_masking(bgr, zc);
+        
+        std::string best_match = "";
+        double best_score = 0.60; // Minimum threshold
+        
+        for (const auto& [name, temp_img] : raw_templates) {
+            if (!zc.icon_prefix.empty() && name.find(zc.icon_prefix) != 0) continue;
+            
+            cv::Mat temp_bgr = temp_img.clone();
+            
+            // Mask template background if provided
+            if (zc.has_template_bg) {
+                int tolerance = 15;
+                for (int y = 0; y < temp_bgr.rows; ++y) {
+                    for (int x = 0; x < temp_bgr.cols; ++x) {
+                        cv::Vec3b& pixel = temp_bgr.at<cv::Vec3b>(y, x);
+                        if (std::abs(pixel[0] - zc.template_bg_color[0]) <= tolerance &&
+                            std::abs(pixel[1] - zc.template_bg_color[1]) <= tolerance &&
+                            std::abs(pixel[2] - zc.template_bg_color[2]) <= tolerance) {
+                            pixel = cv::Vec3b(0, 0, 0);
+                        }
+                    }
+                }
+            }
+            
+            if (bgr.rows < temp_bgr.rows || bgr.cols < temp_bgr.cols) continue;
+            
+            cv::Mat res;
+            cv::matchTemplate(bgr, temp_bgr, res, cv::TM_CCOEFF_NORMED);
+            double minVal, maxVal;
+            cv::minMaxLoc(res, &minVal, &maxVal);
+            
+            if (maxVal > best_score) {
+                best_score = maxVal;
+                if (!zc.icon_prefix.empty() && name.find(zc.icon_prefix) == 0) {
+                    best_match = name.substr(zc.icon_prefix.length());
+                } else {
+                    best_match = name;
+                }
+            }
+        }
+        
+        if (best_match.empty()) return -1.0;
+        return best_match; // returns string natively via json
+    }
+    else if (zc.type == "text" || zc.type == "text_bullet" || zc.type == "text_timer" || zc.type == "fuel" || zc.type == "text_raw" || zc.type == "ult_fraction") {
         if (zc.binarized_templates.empty()) return 0;
 
-        cv::Mat bgr, hsv, mask, clean_gray;
+        cv::Mat bgr, gray, mask, clean_gray;
         cv::cvtColor(roi, bgr, cv::COLOR_BGRA2BGR);
-        cv::cvtColor(bgr, hsv, cv::COLOR_BGR2HSV);
-
-        // 1. Target the text white (eliminates light green, sky blue, etc.)
-        // Limited to 215 (85% pure white) because the top and bottom of '0' are thinner 
-        // and appear slightly "gray" due to the game's anti-aliasing.
-        cv::inRange(bgr, cv::Scalar(215, 215, 215), cv::Scalar(255, 255, 255), mask);
-
-        // 2. STRICT FILTER PROBLEM: It destroys anti-aliasing on the edges (which are grayed).
-        // Without its edges, a '0' becomes too thin, breaks, and the algo reads "111".
-        // SOLUTION: Dilate this "white core" mask so it overflows and covers the edges.
-        // (Limited to 1 pixel to avoid plugging the small internal holes of '8' and '3')
-        cv::dilate(mask, mask, cv::Mat(), cv::Point(-1,-1), 1);
-
-        // 3. Create a classic brightness mask to cut the background outside the dilated text.
-        cv::Mat gray, lum_mask;
-        cv::cvtColor(bgr, gray, cv::COLOR_BGR2GRAY);
-        cv::threshold(gray, lum_mask, 65, 255, cv::THRESH_BINARY);
         
-        // 4. Combine: Keep bright pixels (>145) THAT ARE AROUND an ultra-white core!
-        cv::bitwise_and(mask, lum_mask, mask);
+        apply_background_masking(bgr, zc);
+        
+        cv::cvtColor(bgr, gray, cv::COLOR_BGR2GRAY);
 
-
+        if (zc.type == "text_raw" || zc.type == "ult_fraction") {
+            mask = gray.clone();
+        } else {
+            // Extracting text: A simple threshold at 130 perfectly removes the dark HUD background
+            // and preserves low-resolution anti-aliasing without the destructive effects of inRange/dilate.
+            cv::threshold(gray, mask, 130, 255, cv::THRESH_BINARY);
+        }
 
         // If the zone contains no valid text
         if (cv::countNonZero(mask) < 3) {
@@ -492,7 +636,6 @@ json process_zone(const cv::Mat& roi, const ZoneConfig& zc) {
         struct Match { std::string digit; int x; double score; int w; };
         std::vector<Match> matches;
 
-
         // Increased threshold to 0.70 to completely eliminate false positives.
         // Fades and light backgrounds might now trigger an OCR failure (-1.0),
         // but our physics fallback will perfectly simulate the timer ticking down.
@@ -505,12 +648,16 @@ json process_zone(const cv::Mat& roi, const ZoneConfig& zc) {
                 real_name = name_scale.substr(0, delim_pos);
             }
 
-            if (zc.type == "text_bullet" && real_name.find("a_bullet_") != std::string::npos) {
-                real_name = real_name.substr(9, 1);
-            }
-            
-            if (zc.type == "fuel" && real_name.find("fuel_") != std::string::npos) {
-                real_name = real_name.substr(5, 1);
+            if (!zc.icon_prefix.empty() && real_name.find(zc.icon_prefix) == 0) {
+                real_name = real_name.substr(zc.icon_prefix.length());
+            } else {
+                if (zc.type == "text_bullet" && real_name.find("a_bullet_") != std::string::npos) {
+                    real_name = real_name.substr(9, 1);
+                }
+                
+                if (zc.type == "fuel" && real_name.find("fuel_") != std::string::npos) {
+                    real_name = real_name.substr(5, 1);
+                }
             }
 
             if (clean_gray.rows < temp_mask.rows || clean_gray.cols < temp_mask.cols) {
@@ -520,8 +667,6 @@ json process_zone(const cv::Mat& roi, const ZoneConfig& zc) {
             cv::Mat res;
             // Template matching on Masked Grayscale
             cv::matchTemplate(clean_gray, temp_mask, res, cv::TM_CCOEFF_NORMED);
-
-
             
             // Find all local maxima above the threshold
             for (int y = 0; y < res.rows; y++) {
@@ -540,7 +685,11 @@ json process_zone(const cv::Mat& roi, const ZoneConfig& zc) {
                             }
                         }
                         if (is_max) {
-                            std::string digit = (real_name == "dot") ? "." : real_name;
+                            std::string digit = real_name;
+                            if (real_name == "dot") digit = ".";
+                            else if (real_name == "comma") digit = ",";
+                            else if (real_name == "slash") digit = "/";
+                            
                             matches.push_back({digit, x, score, temp_mask.cols});
                         }
                     }
@@ -666,6 +815,9 @@ json process_zone(const cv::Mat& roi, const ZoneConfig& zc) {
         }
 
         try {
+            if (zc.type == "text_raw" || zc.type == "ult_fraction") {
+                return result; // Return string natively for non-physical attributes (like kills, money with commas)
+            }
             double final_value = std::stod(result);
             if (zc.max_value >= 0 && final_value > zc.max_value) return -1.0; // Exceeds upper limit
             if (final_value < zc.min_value) return -1.0; // Below lower limit
@@ -721,6 +873,10 @@ void save_debug_screenshot(const cv::Mat& frame, const std::vector<ZoneConfig>& 
 // --------------------------------------------------
 
 int main() {
+    _putenv_s("OPENCV_LOG_LEVEL", "SILENT");
+    _putenv_s("OPENCV_LOG_LEVEL", "FATAL"); // Just in case SILENT is not fully respected
+    cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_SILENT);
+
     // BELOW_NORMAL priority: the game always takes precedence over SpectraCV
     SetPriorityClass(GetCurrentProcess(), BELOW_NORMAL_PRIORITY_CLASS);
     
@@ -741,9 +897,10 @@ int main() {
     screen_width = capture.GetWidth();
     screen_height = capture.GetHeight();
     
-    load_templates(); // Load and resize images AFTER knowing the screen resolution
+    load_templates(DEBUG_MODE ? DEBUG_AGENT_NAME : ""); // Load and resize images AFTER knowing the screen resolution
     
     if (DEBUG_MODE) {
+        current_cv_mode = "MAIN";
         std::cout << "[DEBUG] DEBUG mode activated. Forced agent: " << DEBUG_AGENT_NAME << std::endl;
         std::cout << "[DEBUG] Spectra CV C++ started. Resolution: " << screen_width << "x" << screen_height << std::endl;
         load_config(DEBUG_AGENT_NAME);
@@ -767,11 +924,17 @@ int main() {
         bool initialized = false;
         double last_rejected_value = -1.0;
         int consecutive_rejections = 0;
+        double last_ult_max = 0.0;
     };
     std::map<std::string, AgentPhysics> physics_engine;
     auto last_dxgi_check = std::chrono::steady_clock::now();
 
     while (true) {
+        if (current_cv_mode == "OFF") {
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            continue;
+        }
+
         auto frame_start = std::chrono::steady_clock::now();
         
         if (std::chrono::duration_cast<std::chrono::seconds>(frame_start - last_dxgi_check).count() >= 10) {
@@ -786,6 +949,30 @@ int main() {
                 MONITOR_INDEX = val_monitor;
                 capture.Initialize(MONITOR_INDEX);
                 continue; // Skip the rest to avoid using an invalid frame
+            }
+            int current_sys_w = screen_width;
+            int current_sys_h = screen_height;
+            
+            HWND hwnd = FindWindowA("UnrealWindow", "VALORANT  ");
+            if (!hwnd) hwnd = FindWindowA(NULL, "VALORANT  ");
+            if (hwnd) {
+                HMONITOR hMon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+                MONITORINFO mi;
+                mi.cbSize = sizeof(MONITORINFO);
+                if (GetMonitorInfo(hMon, &mi)) {
+                    current_sys_w = mi.rcMonitor.right - mi.rcMonitor.left;
+                    current_sys_h = mi.rcMonitor.bottom - mi.rcMonitor.top;
+                }
+            } else {
+                current_sys_w = GetSystemMetrics(SM_CXSCREEN);
+                current_sys_h = GetSystemMetrics(SM_CYSCREEN);
+            }
+
+            if (current_sys_w != screen_width || current_sys_h != screen_height) {
+                if (DEBUG_MODE) {
+                    send_message("[DEBUG] Periodic DXGI check (10s)... Resolution mismatch detected (" + std::to_string(current_sys_w) + "x" + std::to_string(current_sys_h) + "), reinitializing capture.");
+                }
+                capture.Initialize(MONITOR_INDEX);
             }
         }
 
@@ -815,7 +1002,7 @@ int main() {
                     ss << "[DEBUG] Resolution change detected: " << screen_width << "x" << screen_height;
                     send_message(ss.str());
                 }
-                load_templates();
+                load_templates(current_agent_name);
                 if (!current_agent_name.empty()) {
                     load_config(current_agent_name);
                 }
@@ -1029,6 +1216,29 @@ int main() {
                             }
                         }
                     }
+                } else if (zc.type == "ult_fraction" && val.is_string()) {
+                    std::string s = val.get<std::string>();
+                    std::string parent_path = zc.name;
+                    size_t last_dot = zc.name.find_last_of('.');
+                    if (last_dot != std::string::npos) {
+                        parent_path = zc.name.substr(0, last_dot);
+                    }
+                    
+                    if (s == "READY" || s == "ready") {
+                        current_state[parent_path + ".ult_points"] = phys.last_ult_max;
+                        current_state[parent_path + ".ult_maximum"] = phys.last_ult_max;
+                    } else {
+                        size_t slash_pos = s.find('/');
+                        if (slash_pos != std::string::npos) {
+                            try {
+                                double pts = std::stod(s.substr(0, slash_pos));
+                                double max_pts = std::stod(s.substr(slash_pos + 1));
+                                current_state[parent_path + ".ult_points"] = pts;
+                                current_state[parent_path + ".ult_maximum"] = max_pts;
+                                phys.last_ult_max = max_pts;
+                            } catch (...) {}
+                        }
+                    }
                 } else {
                     current_state[zc.name] = val; // Fallback for colors and non-number types
                 }
@@ -1037,6 +1247,17 @@ int main() {
             if (force_debug_screenshot) {
                 save_debug_screenshot(frame, current_zones, "launch", current_agent_name);
                 force_debug_screenshot = false;
+            }
+
+            json nested_state = json::object();
+            for (auto& [k, v] : current_state.items()) {
+                std::string jp_str = "/" + k;
+                std::replace(jp_str.begin(), jp_str.end(), '.', '/');
+                try {
+                    nested_state[json::json_pointer(jp_str)] = v;
+                } catch (...) {
+                    // Ignore JSON pointer parsing errors
+                }
             }
 
             if (current_state != last_state) {
@@ -1050,16 +1271,41 @@ int main() {
                     int ms_remainder = now_ms % 1000;
 
                     std::ostringstream ss;
-                    ss << "[DEBUG] [" << time_buf << "." << std::setfill('0') << std::setw(3) << ms_remainder << "] New State (" << current_agent_name << "): " << current_state.dump();
+                    ss << "[DEBUG] [" << time_buf << "." << std::setfill('0') << std::setw(3) << ms_remainder << "] New State (" << current_agent_name << "): " << nested_state.dump();
                     send_message(ss.str());
                 } else {
-                    json payload;
-                    payload["type"] = "state_update";
-                    payload["agent"] = current_agent_name;
-                    payload["data"] = current_state;
-                    send_message(payload.dump());
+                    if (current_cv_mode == "MAIN") {
+                        for (auto& [k, v] : nested_state.items()) {
+                            if (!last_nested_state.contains(k) || last_nested_state[k] != v) {
+                                json payload;
+                                payload["type"] = "gep_info";
+                                json data_block;
+                                data_block["gameId"] = 21640;
+                                data_block["key"] = k; // the sub-category string like "Scoreboard"
+                                
+                                // GEP wraps values inside a stringified JSON
+                                json value_obj;
+                                if (v.is_number() || v.is_string() || v.is_boolean()) {
+                                    value_obj["value"] = v;
+                                } else {
+                                    value_obj = v;
+                                }
+                                data_block["value"] = value_obj.dump();
+                                
+                                payload["data"] = data_block;
+                                send_message(payload.dump());
+                            }
+                        }
+                    } else {
+                        json payload;
+                        payload["type"] = "state_update";
+                        payload["agent"] = current_agent_name;
+                        payload["data"] = nested_state;
+                        send_message(payload.dump());
+                    }
                 }
                 last_state = current_state;
+                last_nested_state = nested_state;
             }
 
             auto frame_end = std::chrono::steady_clock::now();

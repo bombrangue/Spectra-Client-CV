@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   openExternalLink: (link: string) => ipcRenderer.send("open-external-link", link),
   setStartupSettings: (enabled: boolean, startMinimized: boolean, aux: boolean) =>
     ipcRenderer.send("set-startup-settings", enabled, startMinimized, aux),
+  setCVMode: (mode: string) => ipcRenderer.send("set-cv-mode", mode),
 
   setPlayerName: (callback: (arg0: any) => any) =>
     ipcRenderer.on("set-player-name", (_event: any, value: any) => callback(value)),
