@@ -95,15 +95,13 @@ std::string DEBUG_AGENT_NAME = "admin_view"; // Modify to test another agent
 // --- CV MODE ---
 std::string current_cv_mode = "OFF";
 
-// --- SCREEN SELECTION ---
-int MONITOR_INDEX = 0; // 0 = Primary Screen, 1 = Secondary Screen, etc.
+int MONITOR_INDEX = 0;
 
 // --- FRAME RATE LIMITER (FPS) ---
 int TARGET_FPS = 10; // Max 30 FPS (drastically reduces CPU usage)
 
 std::vector<ZoneConfig> active_zones;
 std::string current_agent_name = "";
-std::string current_phase = "buy_phase"; // "buy_phase" or "combat"
 std::mutex config_mutex;
 int screen_width = 2560;
 int screen_height = 1440;
@@ -485,10 +483,6 @@ void process_stdin() {
                     load_templates(command["agent"]);
                     load_config(command["agent"]);
                 }
-            } else if (command["action"] == "set_phase") {
-                current_phase = command["phase"].get<std::string>();
-                ss << "[DEBUG] [" << time_buf << "." << std::setfill('0') << std::setw(3) << ms_remainder << "] Spectra CV received input (set_phase): " << current_phase;
-                send_message(ss.str());
             } else if (command["action"] == "stop") {
                 exit(0);
             }
@@ -1102,17 +1096,8 @@ int main() {
                                             }
                                         }
                                     } else if (diff > 0) { // Increase
-                                        bool is_strict_zero = false;
                                         double refill_limit = zc.max_refill_per_s;
-                                        
-                                        if (zc.type == "text_bullet" && current_phase == "combat") {
-                                            refill_limit = 0.0; // Impossible to gain bullets mid-round
-                                            is_strict_zero = true;
-                                        }
-
-                                        if (is_strict_zero) {
-                                            accepted = false; // Absolute prohibition to increase
-                                        } else if (refill_limit >= 0) {
+                                        if (refill_limit >= 0) {
                                             double max_refill = (elapsed * refill_limit) + 1.5; // Reduced tolerance
                                             if (diff > max_refill) {
                                                 if (zc.allow_jump_to_max && zc.max_value > 0.0 && v == zc.max_value) {
@@ -1131,10 +1116,6 @@ int main() {
                                 // ANTI-DESYNC CORRECTION SYSTEM
                                 if (!accepted) {
                                     bool anti_desync_allowed = true;
-                                    // Never force an increase in combat if strictly forbidden
-                                    if (diff > 0 && zc.type == "text_bullet" && current_phase == "combat") {
-                                        anti_desync_allowed = false;
-                                    }
                                     
                                     // NEVER force a massive drop that violates physical reality
                                     if (diff < 0) {
